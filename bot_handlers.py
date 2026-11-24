@@ -86,7 +86,7 @@ async def plans_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bot_info = await context.bot.get_me() if context.bot else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "kolinsightsbot"
 
     if context.args:
         param = context.args[0]
@@ -282,7 +282,7 @@ async def adminhelp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await safe_reply(update.message, text)
 
-async def display_project_info(message_or_update, ca: str, bot_username: str = "KOLInsights_bot"):
+async def display_project_info(message_or_update, ca: str, bot_username: str = "kolinsightsbot"):
     """Renders detailed project history matching Image 3 format."""
     ca = ca.strip()
     calls = await get_calls_by_token(ca)
@@ -448,7 +448,7 @@ async def checkcalls_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     ca = context.args[0].strip()
     bot_info = await context.bot.get_me() if context.bot else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "kolinsightsbot"
     await display_project_info(update, ca, bot_username)
 
 async def addchannel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1309,7 +1309,7 @@ async def group_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     update.effective_message,
                     f"🎉 **Success! `@{ch_user}` has been registered!**\n\n"
                     f"🎁 **Status:** 7-Day FREE Trial Activated (*Expires: 7 days from today*)\n\n"
-                    f"⚙️ **Final Step:** Add `@KOLInsights_bot` to your channel/group as a member/admin to begin tracking calls!"
+                    f"⚙️ **Final Step:** Add `@kolinsightsbot` to your channel/group as a member/admin to begin tracking calls!"
                 )
                 return
 
