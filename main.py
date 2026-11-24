@@ -1948,11 +1948,11 @@ async def main():
         except Exception:
             pass
 
-        logger.info("🌐 [RENDER] Starting embedded HTTP Web Service for Health Checks...")
+    logger.info("🌐 [RENDER] Starting embedded HTTP Web Service for Health Checks...")
     try:
         from server import start_render_web_server, HealthStatus
-        from config import PORT, KEEP_ALIVE_URL
-        start_render_web_server(port=PORT, bot_app=bot_app, scraper=None)
+        from config import PORT
+        start_render_web_server(port=PORT, bot_app=None, scraper=None)
     except Exception as srv_err:
         logger.warning(f"Could not start Render web server: {srv_err}")
 
@@ -1982,16 +1982,22 @@ async def main():
     logger.info("=" * 60)
 
     logger.info("🚀 [STEP 4/7] Initializing Telegram Bot API Command Handler...")
+    bot_app = None
     if not BOT_TOKEN:
         logger.warning("⚠️ [STEP 4/7 WARNING] BOT_TOKEN missing in .env! Interactive Telegram bot commands will not respond.")
-
-    bot_app = ApplicationBuilder().token(BOT_TOKEN).concurrent_updates(True).build() if BOT_TOKEN else None
-    if bot_app:
-        register_handlers(bot_app)
-        await bot_app.initialize()
-        await bot_app.start()
-        await bot_app.updater.start_polling()
-        logger.info("✅ [STEP 4/7 SUCCESS] Telegram Bot Polling active! Commands (/start, /checkstats, /status, /ping) are operational.")
+    else:
+        try:
+            bot_app = ApplicationBuilder().token(BOT_TOKEN).concurrent_updates(True).build()
+            register_handlers(bot_app)
+            await bot_app.initialize()
+            await bot_app.start()
+            await bot_app.updater.start_polling()
+            logger.info("✅ [STEP 4/7 SUCCESS] Telegram Bot Polling active! Commands (/start, /checkstats, /status, /ping) are operational.")
+        except Exception as bot_err:
+            logger.error(f"❌ [STEP 4/7 ERROR] Telegram Bot API initialization failed: {bot_err}")
+            logger.warning("⚠️ Please verify that BOT_TOKEN in Render Environment Variables is valid and active!")
+            logger.info("ℹ️ System will continue running: Userbot Scraping & Price Tracking remain fully active.")
+            bot_app = None
 
     async def alert_callback(call_data, milestone, image_bytes):
         await send_milestone_alert(call_data, milestone, image_bytes, bot_app)
