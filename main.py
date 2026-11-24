@@ -294,7 +294,7 @@ def get_chain_slug_and_explorer(chain: str, token_addr: str):
     else:
         return "eth", f"https://etherscan.io/token/{token_addr}", "Etherscan"
 
-def build_trade_buttons(call_data: dict, bot_username: str = "KOLInsightsbot"):
+def build_trade_buttons(call_data: dict, bot_username: str = "KOLInsights_bot"):
     """
     Builds clean, ultra-responsive trading and chart buttons:
     - Maestro 1-Click Buy Bot: https://t.me/MaestroSniperBot?start={ca}
@@ -405,7 +405,7 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
     from telegram import InputFile
 
     bot_info = await bot_app.bot.get_me() if (bot_app and bot_app.bot) else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsightsbot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
 
     raw_user = (call_data.get('channel_username') or "").lstrip("@")
     ch_title = clean_markdown(call_data.get('channel_title') or "Unknown Channel")
@@ -763,13 +763,13 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
                 
                 if b_res:
                     main_msg_id_botapi = b_res.message_id
-                    logger.info(f"📢 [MAIN CHANNEL BOT API SUCCESS] ✅ Delivered {milestone}x Achievement Card via @KOLInsightsbot to '{alert_ch}'! (Message ID: {b_res.message_id})")
+                    logger.info(f"📢 [MAIN CHANNEL BOT API SUCCESS] ✅ Delivered {milestone}x Achievement Card via @KOLInsights_bot to '{alert_ch}'! (Message ID: {b_res.message_id})")
             except Exception as bot_err:
                 logger.error(f"❌ [MAIN CHANNEL POST FAILED] Could not deliver milestone card via Bot API to main channel '{alert_ch}': {bot_err}")
 
     fwd_msg_id = main_msg_id_botapi or main_msg_id_telethon
 
-    # Step B: Forward official channel message directly to ALL linked channel co-owners' DMs via Bot API (@KOLInsightsbot)
+    # Step B: Forward official channel message directly to ALL linked channel co-owners' DMs via Bot API (@KOLInsights_bot)
     if all_owners:
         logger.info(f"👤 [OWNER DM DISPATCH] Found {len(all_owners)} owner(s) for channel '{caller_ch_user or caller_ch_id}'. Sending DM alerts...")
         for single_owner in all_owners:
@@ -780,7 +780,7 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
                 try:
                     await bot_app.bot.forward_message(chat_id=clean_owner, from_chat_id=alert_ch, message_id=fwd_msg_id)
                     forwarded = True
-                    logger.info(f"📥 [OWNER DM ALERT SUCCESS] ✅ Forwarded {milestone}x Achievement Card via @KOLInsightsbot to Owner DM '{clean_owner}'!")
+                    logger.info(f"📥 [OWNER DM ALERT SUCCESS] ✅ Forwarded {milestone}x Achievement Card via @KOLInsights_bot to Owner DM '{clean_owner}'!")
                 except Exception as bot_fwd_err:
                     logger.warning(f"⚠️ Bot API forwarding notice to Owner DM '{clean_owner}': {bot_fwd_err}. Fallback to direct DM delivery...")
 
@@ -795,7 +795,7 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
                             await bot_app.bot.send_photo(chat_id=clean_owner, photo=file_id, caption=caption_html, parse_mode="HTML")
                     else:
                         await bot_app.bot.send_photo(chat_id=clean_owner, photo=InputFile(image_bytes, filename="achievement.png"), caption=caption_html, parse_mode="HTML")
-                    logger.info(f"📥 [OWNER DM ALERT SUCCESS] ✅ Delivered direct achievement card copy via @KOLInsightsbot to Owner DM '{clean_owner}'!")
+                    logger.info(f"📥 [OWNER DM ALERT SUCCESS] ✅ Delivered direct achievement card copy via @KOLInsights_bot to Owner DM '{clean_owner}'!")
                 except Exception as direct_err:
                     logger.error(f"❌ [OWNER DM ALERT FAILED] Could not deliver DM card to Owner '{clean_owner}': {direct_err}")
 
@@ -820,7 +820,7 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
                             await bot_app.bot.send_photo(chat_id=f_user_id, photo=file_id, caption=caption_html, parse_mode="HTML")
                     else:
                         await bot_app.bot.send_photo(chat_id=f_user_id, photo=InputFile(image_bytes, filename="achievement.png"), caption=caption_html, parse_mode="HTML")
-                    logger.info(f"📥 [FOLLOWER DM ALERT SUCCESS] ✅ Delivered {milestone}x Achievement Card via @KOLInsightsbot to Follower DM '{f_user_id}'!")
+                    logger.info(f"📥 [FOLLOWER DM ALERT SUCCESS] ✅ Delivered {milestone}x Achievement Card via @KOLInsights_bot to Follower DM '{f_user_id}'!")
                 except Exception as f_err:
                     logger.error(f"❌ [FOLLOWER DM ALERT FAILED] Could not deliver DM card to Follower '{f_user_id}': {f_err}")
 
@@ -834,7 +834,7 @@ async def send_consistency_alert(call_data: dict, count: int, calls_7d: list, bo
     from database import get_custom_media
 
     bot_info = await bot_app.bot.get_me() if (bot_app and bot_app.bot) else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsightsbot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
 
     raw_user = (call_data.get('channel_username') or "").lstrip("@")
     ch_title = clean_markdown(call_data.get('channel_title') or "Unknown Channel")
@@ -990,7 +990,7 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
             bot_info = await bot_app.bot.get_me()
         except Exception:
             pass
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsightsbot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
 
     raw_user = (call_data.get('channel_username') or "").lstrip("@")
     ch_title = clean_markdown(call_data.get('channel_title') or "Unknown Channel")
@@ -1174,7 +1174,7 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
                     await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML")
             else:
                 await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True)
-            logger.info(f"📢 [NEW CALL BOT API SUCCESS] Posted new call alert for call #{call_data.get('id')} to alert channel {alert_ch} via @KOLInsightsbot (Plain Unicode Fallback)")
+            logger.info(f"📢 [NEW CALL BOT API SUCCESS] Posted new call alert for call #{call_data.get('id')} to alert channel {alert_ch} via @KOLInsights_bot (Plain Unicode Fallback)")
         except Exception as e:
             logger.warning(f"❌ [NEW CALL BOT API FAILED] Failed to post new call alert to chat {alert_ch}: {e}")
 
@@ -1189,7 +1189,7 @@ async def send_spotlight_report(token_data: dict, bot_app, chat_id=None):
     from database import get_custom_media
 
     bot_info = await bot_app.bot.get_me() if (bot_app and bot_app.bot) else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsightsbot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
 
     t_name = clean_markdown(token_data.get("name", "V4"))
     safe_t_name = t_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -1262,7 +1262,7 @@ async def send_daily_leaderboard_report(bot_app, chat_id=None):
     from graphics import format_number
 
     bot_info = await bot_app.bot.get_me() if (bot_app and bot_app.bot) else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsightsbot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
 
     stats = await get_daily_leaderboard_stats()
     top_coins = stats.get("top_coins", [])
@@ -1444,7 +1444,7 @@ async def send_weekly_leaderboard_report(bot_app, chat_id=None):
     from graphics import format_number
 
     bot_info = await bot_app.bot.get_me() if (bot_app and bot_app.bot) else None
-    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsightsbot"
+    bot_username = bot_info.username if (bot_info and bot_info.username) else "KOLInsights_bot"
 
     stats = await get_weekly_leaderboard_stats()
     weekly_callers = stats.get("weekly_callers", [])
