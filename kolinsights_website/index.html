@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- SEO Primary Meta Tags -->
+  <title>KOLInsights - Top Telegram KOL Analytics & Multi-Chain Call Tracking Platform</title>
+  <meta name="title" content="KOLInsights - Top Telegram KOL Analytics & Multi-Chain Call Tracking Platform">
+  <meta name="description" content="The premier home of crypto KOL analytics. Track top call channels, real-time ATH multipliers, 3D achievement banners, and caller consistency across Solana, Ethereum, Base, BSC, Arbitrum, Robinhood, and ARC Chain.">
+  <meta name="keywords" content="KOLInsights, Telegram Bot, Crypto Call Tracker, KOL Analytics, Solana Call Tracker, Base Call Tracker, ARC Chain, Robinhood Crypto, DexScreener Bot, Alpha Radar, Crypto Trading Bot">
+  
+  <!-- Open Graph / Facebook / Telegram -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kolinsights.org/">
+  <meta property="og:title" content="KOLInsights - Top Telegram KOL Analytics & Call Tracking">
+  <meta property="og:description" content="Track top call channels, real-time ATH multipliers, and caller consistency across Solana, Ethereum, Base, BSC, Arbitrum, Robinhood, and ARC Chain.">
+  <meta property="og:image" content="https://kolinsights.org/assets/preview.png">
+
+  <!-- Favicon / Tab Icon -->
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
+  <link rel="apple-touch-icon" href="logo.jpg">
+
+  <!-- Google Fonts & Stylesheet -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar" id="main-nav">
+    <div class="container nav-container">
+      <a href="#" class="brand-logo" id="nav-brand-logo">
+        <img src="logo.jpg" alt="KOLInsights Logo" class="brand-img-logo">
+        <span>KOLInsights</span>
+      </a>
+      
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <ul class="nav-links" id="nav-menu">
+        <li><a href="#features" class="nav-link" id="link-features">Features</a></li>
+        <li><a href="#onboarding" class="nav-link" id="link-onboarding">1-Week Free Trial</a></li>
+        <li><a href="#pricing" class="nav-link" id="link-pricing">Pricing & Plans</a></li>
+        <li><a href="#docs" class="nav-link" id="link-docs">Documentation</a></li>
+        <li><a href="#faq" class="nav-link" id="link-faq">FAQ</a></li>
+      </ul>
+
+      <a href="https://t.me/KOLInsightsbot" target="_blank" class="btn btn-primary nav-cta-btn" id="btn-nav-telegram">
+        <span>🚀 Open Telegram Bot</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero" id="hero-section">
+    <div class="container">
+      <div class="hero-tag">
+        <span>✨ Next-Gen Crypto KOL Analytics & Multi-Chain Tracking</span>
+      </div>
+      
+      <h1 class="hero-title" id="main-heading">
+        Welcome to <span>KOLInsights</span> <img src="logo.jpg" alt="KOLInsights Logo" class="hero-img-logo">
+      </h1>
+      
+      <p class="hero-subtitle">
+        The home of KOL analytics. Tracking top call channels and trusted by thousands of crypto investors across Solana, Ethereum, Base, BSC, Arbitrum, Robinhood, and ARC Chain.
+      </p>
+
+      <div class="hero-actions">
+        <a href="https://t.me/KOLInsightsbot" target="_blank" class="btn btn-primary" id="btn-hero-launch">
+          <span>🚀 Launch Telegram Bot</span>
+        </a>
+        <a href="#pricing" class="btn btn-secondary" id="btn-hero-pricing">
+          <span>💎 View Pricing Plans</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Core Features Section -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Powerful Ecosystem</span>
+        <h2 class="section-title">Built for Serious Investors & Top KOLs</h2>
+      </div>
+
+      <div class="grid-3">
+        <div class="card" id="card-feed">
+          <div class="card-icon">🌐</div>
+          <h3 class="card-title">Multi-Chain Real-Time Feed</h3>
+          <p class="card-desc">
+            Instantly detect contract addresses (CAs) across Solana, Ethereum, Base, BSC, Arbitrum, Robinhood, and ARC Chain as soon as callers mention them.
+          </p>
+        </div>
+
+        <div class="card" id="card-achievements">
+          <div class="card-icon">🪻</div>
+          <h3 class="card-title">Unique 3D Win Cards</h3>
+          <p class="card-desc">
+            Automated visual milestone alert cards from 2x up to 100x Cash Printer multiplier alerts generated dynamically with market cap ATH tracking.
+          </p>
+        </div>
+
+        <div class="card" id="card-stats">
+          <div class="card-icon">📊</div>
+          <h3 class="card-title">In-Depth KOL Stats</h3>
+          <p class="card-desc">
+            Analyze hit-rates, best calls, and simulated $100 ATH yields with <code>/checkstats &lt;@channel&gt;</code> and <code>/checkcalls &lt;CA&gt;</code>.
+          </p>
+        </div>
+
+        <div class="card" id="card-trending">
+          <div class="card-icon">🏆</div>
+          <h3 class="card-title">Project Trending System</h3>
+          <p class="card-desc">
+            Rank recently called tokens by caller consistency and volume with live custom 3D rank emojis and animated analytics reports.
+          </p>
+        </div>
+
+        <div class="card" id="card-sub">
+          <div class="card-icon">🎁</div>
+          <h3 class="card-title">1-Week Free Trial</h3>
+          <p class="card-desc">
+            Self-service onboarding allowing channel owners to add their channel in seconds and receive 7 days of full premium tracking completely free.
+          </p>
+        </div>
+
+        <div class="card" id="card-security">
+          <div class="card-icon">🤖</div>
+          <h3 class="card-title">100% Private Reminders</h3>
+          <p class="card-desc">
+            Private 7-day and 3-day subscription notifications sent directly to Admin DMs—never humiliating clients in public alert channels.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3-Step Channel Onboarding Section -->
+  <section class="section" id="onboarding" style="background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-glass); border-bottom: 1px solid var(--border-glass);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Instant Channel Setup</span>
+        <h2 class="section-title">Get 1 Week Completely FREE in 3 Simple Steps</h2>
+      </div>
+
+      <div class="steps-wrapper">
+        <div class="step-card" id="step-1">
+          <div class="step-number">01</div>
+          <h3 class="step-title">Open Telegram Bot</h3>
+          <p class="card-desc">Click <code>/start</code> in <b>@KOLInsightsbot</b> to launch your interactive dashboard menu.</p>
+        </div>
+
+        <div class="step-card" id="step-2">
+          <div class="step-number">02</div>
+          <h3 class="step-title">Click "Add My Channel"</h3>
+          <p class="card-desc">Tap the <code>[ 📢 Add My Channel ]</code> button and reply with your channel username (e.g., <code>@channelname</code>).</p>
+        </div>
+
+        <div class="step-card" id="step-3">
+          <div class="step-number">03</div>
+          <h3 class="step-title">Activate Free Trial</h3>
+          <p class="card-desc">Add the bot to your channel or group as an admin—your 7-day Free Trial activates instantly!</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing & Subscription Plans Section -->
+  <section class="section" id="pricing">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Official Pricing</span>
+        <h2 class="section-title">Choose Your Subscription Plan</h2>
+      </div>
+
+      <!-- 3-Tier Pricing Grid -->
+      <div class="pricing-grid">
+        <!-- Tier 1: Free Trial -->
+        <div class="pricing-card" id="tier-trial">
+          <div class="pricing-header">
+            <h3 class="pricing-tier-name">🎁 1-Week Trial</h3>
+            <p class="pricing-tier-desc">Full unrestricted access for new call channels and groups.</p>
+          </div>
+          <div class="pricing-price">
+            <span class="price-amount">$0</span>
+            <span class="price-period">/ 7 days</span>
+          </div>
+          <ul class="pricing-features">
+            <li><span class="check-icon">✓</span> <span><b>7 Days</b> full automated tracking</span></li>
+            <li><span class="check-icon">✓</span> <span>Real-time <b>3D Win Cards</b> (2x to 100x)</span></li>
+            <li><span class="check-icon">✓</span> <span>Support for all major chains</span></li>
+            <li><span class="check-icon">✓</span> <span>Caller consistency & hit-rate stats</span></li>
+            <li><span class="check-icon">✓</span> <span>Zero credit card or deposit needed</span></li>
+          </ul>
+          <div class="pricing-cta">
+            <a href="https://t.me/KOLInsightsbot" target="_blank" class="btn btn-secondary" id="btn-cta-trial">
+              <span>🚀 Start Free Trial</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Tier 2: Monthly Plan (Featured) -->
+        <div class="pricing-card featured" id="tier-monthly">
+          <span class="pricing-badge popular">Most Popular</span>
+          <div class="pricing-header">
+            <h3 class="pricing-tier-name">💎 Monthly Plan</h3>
+            <p class="pricing-tier-desc">Continuous high-performance tracking for active KOL channels.</p>
+          </div>
+          <div class="pricing-price">
+            <span class="price-amount">0.01 ETH</span>
+            <span class="price-period">/ month</span>
+          </div>
+          <ul class="pricing-features">
+            <li><span class="check-icon">✓</span> <span><b>Continuous 24/7</b> call tracking</span></li>
+            <li><span class="check-icon">✓</span> <span>Multi-chain: <b>Solana, Base, ETH, BSC, Robinhood, ARC</b></span></li>
+            <li><span class="check-icon">✓</span> <span>Dynamic DexScreener & GeckoTerminal indexing</span></li>
+            <li><span class="check-icon">✓</span> <span><b>100% Private DM</b> renewal notifications</span></li>
+            <li><span class="check-icon">✓</span> <span>Instant automated TxHash verification</span></li>
+          </ul>
+          <div class="pricing-cta">
+            <a href="https://t.me/KOLInsightsbot" target="_blank" class="btn btn-primary" id="btn-cta-monthly">
+              <span>💎 Subscribe Monthly</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Tier 3: Lifetime VIP (Special Offer) -->
+        <div class="pricing-card vip" id="tier-lifetime">
+          <span class="pricing-badge limited">🔥 Limited-Time Offer</span>
+          <div class="pricing-header">
+            <h3 class="pricing-tier-name">♾️ Lifetime VIP</h3>
+            <p class="pricing-tier-desc">Permanent access with zero recurring subscription fees forever.</p>
+          </div>
+          <div class="pricing-price">
+            <span class="price-old">$600</span>
+            <span class="price-amount" style="color: var(--accent-gold);">$399</span>
+            <span class="price-period">one-time</span>
+          </div>
+          <ul class="pricing-features">
+            <li><span class="check-icon">✓</span> <span><b>Permanent Lifetime</b> tracking access</span></li>
+            <li><span class="check-icon">✓</span> <span><b>Zero recurring fees</b> forever</span></li>
+            <li><span class="check-icon">✓</span> <span><b>Priority Lane 1</b> fast-track updates</span></li>
+            <li><span class="check-icon">✓</span> <span>Direct 1-on-1 VIP developer support</span></li>
+            <li><span class="check-icon">✓</span> <span>Early access to new chains & alpha tools</span></li>
+          </ul>
+          <div class="pricing-cta">
+            <a href="https://t.me/kolinsights_admin" target="_blank" class="btn btn-gold" id="btn-cta-lifetime">
+              <span>🔥 Claim Lifetime Offer</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Address & Verification Box -->
+      <div class="payment-box" id="payment-widget">
+        <h3 style="font-size: 1.6rem; margin-bottom: 0.5rem; font-weight: 700;">💳 Ethereum Deposit Address</h3>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;">
+          Send payment directly via Ethereum / ERC-20 to activate or extend your subscription:
+        </p>
+
+        <p style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">📍 Official Deposit Address (ETH / ERC-20):</p>
+        
+        <div class="wallet-display">
+          <span class="wallet-address" id="depositWalletAddr">0xb774E2edd9118274d71d97d9DA7216D8998c36C2</span>
+          <button class="copy-btn" id="copyWalletBtn">📋 Copy Address</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: -0.75rem; margin-bottom: 1.5rem;"><i>(Tap the button above to copy the address to clipboard)</i></p>
+
+        <div style="text-align: left; background: rgba(0, 0, 0, 0.3); padding: 1.35rem; border-radius: var(--radius-md); border: 1px solid var(--border-glass);">
+          <p style="font-weight: 700; color: var(--accent-emerald); margin-bottom: 0.5rem;">📩 How to Confirm Your Payment:</p>
+          <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.35rem;">• <b>Instant In-Bot Approval:</b> Reply in bot chat with your Transaction Hash (TxHash, e.g. <code>0xabc123...</code>) for automatic verification.</p>
+          <p style="font-size: 0.9rem; color: var(--text-muted);">• <b>Direct Admin Confirmation:</b> Contact <b><a href="https://t.me/kolinsights_admin" target="_blank" style="color: var(--accent-cyan); text-decoration: none;">@kolinsights_admin</a></b> directly on Telegram with your payment receipt.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Documentation Tabs Section -->
+  <section class="section" id="docs">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Complete Documentation</span>
+        <h2 class="section-title">Command Reference Guide</h2>
+      </div>
+
+      <div class="docs-tabs">
+        <button class="tab-btn active" data-tab="tab-public" id="btn-tab-public">🤖 Public Bot Commands</button>
+        <button class="tab-btn" data-tab="tab-channel" id="btn-tab-channel">📢 Channel Owner Features</button>
+      </div>
+
+      <!-- Public Commands Tab -->
+      <div class="tab-content active" id="tab-public">
+        <div class="table-responsive">
+          <table class="cmd-table">
+            <thead>
+              <tr>
+                <th>Command</th>
+                <th>Description</th>
+                <th>Example Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="cmd-code">/start</span></td>
+                <td>Launch main dashboard, interactive menu buttons, and channel onboarding.</td>
+                <td><code>/start</code></td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">/plans</span>, <span class="cmd-code">/pricing</span></td>
+                <td>Display official subscription plans, 1-week free trial, and limited $399 lifetime offer.</td>
+                <td><code>/plans</code></td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">/help</span></td>
+                <td>Display complete command reference list and quick setup guide.</td>
+                <td><code>/help</code></td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">/checkstats</span></td>
+                <td>View caller performance, consistency hit-rate, best call, and $100 ATH simulation yield.</td>
+                <td><code>/checkstats @channelname</code></td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">/checkcalls</span></td>
+                <td>Search token call history and discover which channel called a token first.</td>
+                <td><code>/checkcalls 0x6B17...</code></td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">/trending</span></td>
+                <td>Post Recently Called Projects analytics report with live custom rank emojis.</td>
+                <td><code>/trending</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Channel Owner Guide Tab -->
+      <div class="tab-content" id="tab-channel">
+        <div class="table-responsive">
+          <table class="cmd-table">
+            <thead>
+              <tr>
+                <th>Feature / Action</th>
+                <th>Description</th>
+                <th>How to Use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="cmd-code">1-Week Free Trial</span></td>
+                <td>Activate 7 days of full tracking for your call channel or group for free.</td>
+                <td>Tap <code>[ 📢 Add My Channel ]</code> in bot chat</td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">Check My Subscriptions</span></td>
+                <td>View your active channels, remaining trial days, and subscription status.</td>
+                <td>Tap <code>[ 📋 My Channels ]</code> in bot chat</td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">Subscription Plans</span></td>
+                <td>Explore 1-week free trial, 0.01 ETH monthly, or $399 Lifetime VIP offer.</td>
+                <td>Type <code>/plans</code> or tap <code>[ 💎 Subscription Plans ]</code></td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">Renew Monthly</span></td>
+                <td>Extend tracking for <code>0.01 ETH / month</code> with automatic receipt verification.</td>
+                <td>Tap <code>[ 💳 Renew Subscription ]</code> in bot chat</td>
+              </tr>
+              <tr>
+                <td><span class="cmd-code">Submit Payment Hash</span></td>
+                <td>Submit your transaction receipt (TxHash) for instant admin approval.</td>
+                <td>Reply with <code>0x...</code> TxHash in bot chat</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="section" id="faq" style="background: rgba(15, 23, 42, 0.4); border-top: 1px solid var(--border-glass);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Help Center</span>
+        <h2 class="section-title">Frequently Asked Questions</h2>
+      </div>
+
+      <div class="grid-3">
+        <div class="card" id="faq-1">
+          <h3 class="card-title">How does the 1-Week Free Trial work?</h3>
+          <p class="card-desc">Every new channel receives 7 days of 100% free call tracking automatically upon registering via <code>/start</code>. No credit card or upfront ETH payment required.</p>
+        </div>
+
+        <div class="card" id="faq-2">
+          <h3 class="card-title">Which blockchains are supported?</h3>
+          <p class="card-desc">KOLInsights tracks contract addresses (CAs) on Solana, Ethereum, Base, BSC, Arbitrum, Robinhood, and ARC Chain with real-time DexScreener & GeckoTerminal price metrics.</p>
+        </div>
+
+        <div class="card" id="faq-3">
+          <h3 class="card-title">What is the Lifetime VIP offer?</h3>
+          <p class="card-desc">For a limited time, get permanent lifetime tracking for a one-time payment of $399 (regularly $600) with zero recurring monthly fees and priority lane updates.</p>
+        </div>
+
+        <div class="card" id="faq-4">
+          <h3 class="card-title">What happens when my subscription expires?</h3>
+          <p class="card-desc">You receive private reminders 7 days and 3 days prior. If unrenewed, tracking pauses gracefully—no humiliating public messages are ever posted in alert channels.</p>
+        </div>
+
+        <div class="card" id="faq-5">
+          <h3 class="card-title">How do I verify my renewal payment?</h3>
+          <p class="card-desc">After sending 0.01 ETH to the deposit address, simply reply with your TxHash in the bot chat for instant automated verification, or contact @kolinsights_admin.</p>
+        </div>
+
+        <div class="card" id="faq-6">
+          <h3 class="card-title">Can I track multiple channels?</h3>
+          <p class="card-desc">Yes! You can manage multiple call channels and groups under one account and check the status of each using <code>[ 📋 My Channels ]</code> in the bot menu.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer" id="main-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="brand-logo" style="margin-bottom: 1rem;">
+            <img src="logo.jpg" alt="KOLInsights Logo" class="brand-img-logo">
+            <span>KOLInsights</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            The home of KOL analytics. Tracking top call channels and trusted by thousands of crypto investors across Solana, EVM, Robinhood, and ARC Chain.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Platform</h4>
+          <ul class="footer-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#onboarding">1-Week Free Trial</a></li>
+            <li><a href="#pricing">Pricing & Plans</a></li>
+            <li><a href="#docs">Documentation</a></li>
+            <li><a href="#faq">FAQ</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Official Links</h4>
+          <ul class="footer-links">
+            <li><a href="https://t.me/KOLInsightsbot" target="_blank">Telegram Bot (@KOLInsightsbot)</a></li>
+            <li><a href="https://t.me/kolinsights_admin" target="_blank">Contact Admin (@kolinsights_admin)</a></li>
+            <li><a href="https://t.me/KOLInsights" target="_blank">Alerts Channel (@KOLInsights)</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 KOLInsights. All rights reserved. Built for Web3 Investors & KOLs.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
