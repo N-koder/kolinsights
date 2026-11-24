@@ -16,10 +16,12 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/health", "/healthz"):
             uptime = int(time.time() - HealthStatus.start_time)
+            scraper = HealthStatus.scraper
             ub_online = bool(
-                HealthStatus.scraper 
-                and HealthStatus.scraper.client 
-                and HealthStatus.scraper.client.is_connected()
+                scraper 
+                and getattr(scraper, "is_authorized", False)
+                and scraper.client 
+                and scraper.client.is_connected()
             )
             bot_online = bool(
                 HealthStatus.bot_app 
@@ -27,9 +29,10 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             )
             data = {
                 "status": "healthy",
-                "service": "KOLInsights / Spidyfi Alpha Tracker",
+                "service": "KOLInsights Alpha Tracker",
                 "uptime_seconds": uptime,
                 "userbot_connected": ub_online,
+                "userbot_status": getattr(scraper, "status_reason", "Not Initialized") if scraper else "Not Started",
                 "bot_api_connected": bot_online,
                 "timestamp": int(time.time())
             }
@@ -44,12 +47,34 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             h, rem = divmod(uptime, 3600)
             m, s = divmod(rem, 60)
             uptime_str = f"{h}h {m}m {s}s"
+            
+            scraper = HealthStatus.scraper
             ub_online = bool(
-                HealthStatus.scraper 
-                and HealthStatus.scraper.client 
-                and HealthStatus.scraper.client.is_connected()
+                scraper 
+                and getattr(scraper, "is_authorized", False)
+                and scraper.client 
+                and scraper.client.is_connected()
             )
-            ub_badge = '<span style="color:#00ff88;font-weight:bold;">● ONLINE (MTProto Premium)</span>' if ub_online else '<span style="color:#ffcc00;font-weight:bold;">● STANDBY (Bot API Fallback)</span>'
+
+            from config import TG_SESSION_STRING, TG_API_ID
+            if ub_online:
+                uname = getattr(scraper, "status_reason", "Connected")
+                ub_badge = f'<span style="color:#00ff88;font-weight:bold;">● ONLINE (MTProto: {uname})</span>'
+            else:
+                if not TG_API_ID:
+                    reason = "TG_API_ID missing in Render Environment"
+                elif not TG_SESSION_STRING:
+                    reason = "TG_SESSION_STRING missing in Render Environment"
+                else:
+                    reason = getattr(scraper, "status_reason", "Bot API Fallback")
+                ub_badge = f'<span style="color:#ffcc00;font-weight:bold;">● STANDBY ({reason})</span>'
+
+            bot_online = bool(
+                HealthStatus.bot_app 
+                and getattr(HealthStatus.bot_app, "bot", None)
+            )
+            bot_badge = '<span style="color:#00ff88;font-weight:bold;">● ONLINE (@kolinsightsbot)</span>' if bot_online else '<span style="color:#ff4444;font-weight:bold;">● OFFLINE (Check BOT_TOKEN)</span>'
+
             html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -73,7 +98,7 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             border: 1px solid #30363d;
             border-radius: 14px;
             padding: 32px;
-            max-width: 520px;
+            max-width: 540px;
             width: 100%;
             box-shadow: 0 12px 36px rgba(0,0,0,0.55);
         }}
@@ -100,9 +125,10 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             padding: 12px 0;
             border-bottom: 1px solid #21262d;
             font-size: 14px;
+            gap: 10px;
         }}
-        .label {{ color: #8b949e; }}
-        .val {{ font-weight: 600; }}
+        .label {{ color: #8b949e; min-width: 130px; }}
+        .val {{ font-weight: 600; text-align: right; word-break: break-word; }}
         a {{ color: #58a6ff; text-decoration: none; }}
         a:hover {{ text-decoration: underline; }}
         .footer {{
@@ -117,7 +143,8 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
     <div class="card">
         <h1>🚀 KOLInsights Bot <span class="badge">ACTIVE</span></h1>
         <p style="color:#8b949e;margin-bottom:20px;">High-Frequency Crypto KOL & Alpha Channel Tracker</p>
-        <div class="row"><span class="label">Status</span><span class="val" style="color:#00ff88;">🟢 Running Healthy</span></div>
+        <div class="row"><span class="label">System Status</span><span class="val" style="color:#00ff88;">🟢 Running Healthy</span></div>
+        <div class="row"><span class="label">Telegram Bot API</span><span class="val">{bot_badge}</span></div>
         <div class="row"><span class="label">Telethon Userbot</span><span class="val">{ub_badge}</span></div>
         <div class="row"><span class="label">System Uptime</span><span class="val">{uptime_str}</span></div>
         <div class="row"><span class="label">Host Platform</span><span class="val">Render Cloud (Web Service)</span></div>

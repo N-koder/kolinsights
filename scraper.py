@@ -190,9 +190,13 @@ class CallScraper:
         self.session_name = session_name
         self.client: Optional[TelegramClient] = None
         self._processed_events: dict = {}  # (channel_id, event_id) -> timestamp
+        self.is_authorized = False
+        self.me = None
+        self.status_reason = "Initializing..."
 
     async def start(self):
         if not TG_API_ID or not TG_API_HASH:
+            self.status_reason = "TG_API_ID / TG_API_HASH missing in environment"
             logger.info("ℹ️ [SCRAPER HYBRID ENGINE] TG_API_ID or TG_API_HASH missing. Operating in ENGINE 2: Official Telegram Bot API Fallback Mode.")
             return
 
@@ -203,6 +207,7 @@ class CallScraper:
             logger.info("🔑 [SCRAPER HYBRID ENGINE] Initializing Telethon Userbot via TG_SESSION_STRING...")
             self.client = TelegramClient(StringSession(TG_SESSION_STRING), int(TG_API_ID), TG_API_HASH)
         else:
+            self.status_reason = "TG_SESSION_STRING not set in Render environment"
             logger.info(f"📁 [SCRAPER HYBRID ENGINE] Initializing Telethon Userbot via local session file ({self.session_name}.session)...")
             self.client = TelegramClient(self.session_name, int(TG_API_ID), TG_API_HASH)
 
@@ -210,15 +215,26 @@ class CallScraper:
             await self.client.connect()
             is_auth = await self.client.is_user_authorized()
             if not is_auth:
+                self.is_authorized = False
+                self.status_reason = "Session string unauthorized or expired"
                 logger.warning("⚠️ [SCRAPER HYBRID ENGINE] Telethon Userbot not authorized! Operating in ENGINE 2: Official Telegram Bot API Fallback Mode.")
                 return
 
-            logger.info("✅ [STEP 7/7 SUCCESS] Telethon Userbot Authorized! Operating in ENGINE 1: PREMIUM MODE (3D Animated Custom Emojis + Userbot Scraping active).")
+            self.is_authorized = True
+            try:
+                self.me = await self.client.get_me()
+                user_display = f"@{self.me.username}" if (self.me and self.me.username) else (self.me.first_name if self.me else "Authorized")
+                self.status_reason = f"Authorized as {user_display}"
+            except Exception:
+                self.status_reason = "Authorized"
+
+            logger.info(f"✅ [STEP 7/7 SUCCESS] Telethon Userbot Authorized ({self.status_reason})! Operating in ENGINE 1: PREMIUM MODE.")
 
             # Spawn 60-second background Auto-Resolver loop for ID 0 channels
             asyncio.create_task(self._auto_resolver_loop())
 
         except Exception as e:
+            self.status_reason = f"Connection error: {e}"
             logger.warning(f"⚠️ [SCRAPER HYBRID ENGINE] Userbot connection notice: {e} ➔ Operating in ENGINE 2: Official Telegram Bot API Fallback Mode.")
             return
 
