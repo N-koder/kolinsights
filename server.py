@@ -14,7 +14,8 @@ class HealthStatus:
     bot_online = False
     bot_error = None
     scraper_error = None
-    build_version = "v2.2-stable"
+    startup_stage = "Initializing..."
+    build_version = "v2.3-fast-boot"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -29,6 +30,7 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
                 "status": "healthy",
                 "service": "KOLInsights Alpha Tracker",
                 "version": HealthStatus.build_version,
+                "startup_stage": HealthStatus.startup_stage,
                 "uptime_seconds": uptime,
                 "userbot_connected": ub_online,
                 "userbot_status": getattr(scraper, "status_reason", "Not Initialized") if scraper else "Not Started",
@@ -146,6 +148,7 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
         <h1>🚀 KOLInsights Bot <span class="badge">ACTIVE</span></h1>
         <p style="color:#8b949e;margin-bottom:20px;">High-Frequency Crypto KOL & Alpha Channel Tracker</p>
         <div class="row"><span class="label">System Status</span><span class="val" style="color:#00ff88;">🟢 Running Healthy</span></div>
+        <div class="row"><span class="label">Engine Stage</span><span class="val" style="color:#58a6ff;">{HealthStatus.startup_stage}</span></div>
         <div class="row"><span class="label">Telegram Bot API</span><span class="val">{bot_badge}</span></div>
         <div class="row"><span class="label">Telethon Userbot</span><span class="val">{ub_badge}</span></div>
         <div class="row"><span class="label">System Uptime</span><span class="val">{uptime_str}</span></div>

@@ -1942,46 +1942,37 @@ async def main():
         except Exception:
             pass
 
+    from server import start_render_web_server, HealthStatus
+    from config import PORT, BOT_TOKEN, KEEP_ALIVE_URL
+
     logger.info("🌐 [RENDER] Starting embedded HTTP Web Service for Health Checks...")
     try:
-        from server import start_render_web_server, HealthStatus
-        from config import PORT
         start_render_web_server(port=PORT, bot_app=None, scraper=None)
+        HealthStatus.startup_stage = "Web Server Listening"
     except Exception as srv_err:
         logger.warning(f"Could not start Render web server: {srv_err}")
 
-    logger.info("🚀 [STEP 1/7] Cleaning up lingering background processes...")
-    cleanup_duplicate_processes()
-    logger.info("✅ [STEP 1/7 SUCCESS] Process cleanup complete.")
-
-    logger.info("🚀 [STEP 2/7] Initializing SQLite database connection...")
-    await init_db()
-    logger.info("✅ [STEP 2/7 SUCCESS] Database initialized & ready.")
-
-    logger.info("🚀 [STEP 3/7] Pre-loading alert deduplication keys...")
-    await init_sent_alerts()
-    logger.info("✅ [STEP 3/7 SUCCESS] Alert deduplication keys pre-loaded.")
-
-    from database import get_all_channels
-    channels = await get_all_channels()
-    logger.info("=" * 60)
-    if channels:
-        logger.info(f"📡 KOLInsights Connected & Tracked Channels/Groups ({len(channels)}):")
-        for idx, ch in enumerate(channels, start=1):
-            user_str = f" (@{ch['username']})" if ch.get('username') else ""
-            sub_info = f" [{ch.get('sub_type', 'VIP')}]"
-            logger.info(f"  {idx}. {ch['title']}{user_str}{sub_info} [ID: {ch['channel_id']}]")
+    # Process cleanup on local machines only (bypass on Linux/Render containers to prevent /proc hangs)
+    if os.name != 'posix' and not os.getenv("RENDER"):
+        logger.info("🚀 [STEP 1/7] Cleaning up lingering local background processes...")
+        try:
+            cleanup_duplicate_processes()
+        except Exception:
+            pass
     else:
-        logger.info("📡 No channels/groups registered in database yet. (Group calls auto-register when users post CAs)")
-    logger.info("=" * 60)
+        logger.info("🚀 [STEP 1/7] Cloud container environment detected. Skipping local process cleanup.")
 
-    logger.info("🚀 [STEP 4/7] Initializing Telegram Bot API Command Handler...")
-    from server import HealthStatus
+    # -------------------------------------------------------------
+    # STEP 2: Initialize Telegram Bot API Command Handler IMMEDIATELY
+    # -------------------------------------------------------------
+    logger.info("🚀 [STEP 2/7] Initializing Telegram Bot API Command Handler...")
+    HealthStatus.startup_stage = "Starting Telegram Bot"
     bot_app = None
     clean_bot_token = (BOT_TOKEN or "").strip(' "\'')
     if not clean_bot_token:
-        logger.warning("⚠️ [STEP 4/7 WARNING] BOT_TOKEN missing in .env! Interactive Telegram bot commands will not respond.")
+        logger.warning("⚠️ [BOT_TOKEN WARNING] BOT_TOKEN missing in environment! Interactive bot commands will not respond.")
         HealthStatus.bot_error = "BOT_TOKEN missing in environment"
+        HealthStatus.bot_online = False
     else:
         try:
             bot_app = ApplicationBuilder().token(clean_bot_token).concurrent_updates(True).build()
@@ -1989,51 +1980,97 @@ async def main():
             await bot_app.initialize()
             await bot_app.start()
             await bot_app.updater.start_polling()
-            logger.info("✅ [STEP 4/7 SUCCESS] Telegram Bot Polling active! Commands (/start, /checkstats, /status, /ping) are operational.")
+            logger.info("✅ [STEP 2/7 SUCCESS] Telegram Bot Polling active! (@kolinsightsbot commands /start, /checkstats, /status, /ping are operational).")
             HealthStatus.bot_app = bot_app
             HealthStatus.bot_online = True
             HealthStatus.bot_error = None
         except Exception as bot_err:
-            logger.error(f"❌ [STEP 4/7 ERROR] Telegram Bot API initialization failed: {bot_err}")
-            logger.warning("⚠️ Please verify that BOT_TOKEN in Render Environment Variables is valid and active!")
-            logger.info("ℹ️ System will continue running: Userbot Scraping & Price Tracking remain fully active.")
+            logger.error(f"❌ [BOT API ERROR] Telegram Bot API initialization failed: {bot_err}")
             HealthStatus.bot_error = str(bot_err)
             HealthStatus.bot_online = False
             bot_app = None
 
-    async def alert_callback(call_data, milestone, image_bytes):
-        await send_milestone_alert(call_data, milestone, image_bytes, bot_app)
-
-    async def consistency_callback(call_data, count, calls_7d):
-        await send_consistency_alert(call_data, count, calls_7d, bot_app)
-
-    logger.info("🚀 [STEP 5/7] Starting Price Tracker background engine...")
-    tracker = PriceTracker(alert_callback=alert_callback, consistency_callback=consistency_callback)
-    tracker_task = asyncio.create_task(tracker.start())
-    logger.info("✅ [STEP 5/7 SUCCESS] Price Tracker background engine started!")
-
     global _global_bot_app, _global_scraper
     _global_bot_app = bot_app
 
-    if bot_app:
-        logger.info("🚀 [STEP 6/7] Starting periodic background tasks (Trending & Subscriptions)...")
-        trending_task = asyncio.create_task(periodic_trending_poster(bot_app))
-        sub_checker_task = asyncio.create_task(periodic_subscription_checker(bot_app))
-        heartbeat_task = asyncio.create_task(periodic_system_heartbeat())
-        logger.info("✅ [STEP 6/7 SUCCESS] Periodic background tasks running!")
-
-    logger.info("🚀 [STEP 7/7] Connecting Telethon Call Scraper to Telegram...")
+    # -------------------------------------------------------------
+    # STEP 3: Connect Telethon Call Scraper to Telegram IMMEDIATELY
+    # -------------------------------------------------------------
+    logger.info("🚀 [STEP 3/7] Connecting Telethon Call Scraper to Telegram...")
+    HealthStatus.startup_stage = "Starting Telethon Userbot"
     scraper = CallScraper()
     _global_scraper = scraper
     scraper.bot_app = bot_app
     HealthStatus.scraper = scraper
     scraper_task = asyncio.create_task(scraper.start())
 
-    from config import KEEP_ALIVE_URL
+    # -------------------------------------------------------------
+    # STEP 4: Initialize Cloud Database (MongoDB Atlas)
+    # -------------------------------------------------------------
+    logger.info("🚀 [STEP 4/7] Initializing MongoDB database connection...")
+    HealthStatus.startup_stage = "Initializing Database"
+    try:
+        await asyncio.wait_for(init_db(), timeout=10.0)
+        logger.info("✅ [STEP 4/7 SUCCESS] Database initialized & ready.")
+    except Exception as db_err:
+        logger.warning(f"Database initialization notice (continuing): {db_err}")
+
+    # -------------------------------------------------------------
+    # STEP 5: Pre-load alert deduplication keys
+    # -------------------------------------------------------------
+    logger.info("🚀 [STEP 5/7] Pre-loading alert deduplication keys...")
+    HealthStatus.startup_stage = "Pre-loading deduplication keys"
+    try:
+        await asyncio.wait_for(init_sent_alerts(), timeout=6.0)
+        logger.info("✅ [STEP 5/7 SUCCESS] Alert deduplication keys pre-loaded.")
+    except Exception as alert_err:
+        logger.warning(f"Alert pre-load notice: {alert_err}")
+
+    try:
+        from database import get_all_channels
+        channels = await asyncio.wait_for(get_all_channels(), timeout=5.0)
+        logger.info("=" * 60)
+        if channels:
+            logger.info(f"📡 KOLInsights Connected & Tracked Channels/Groups ({len(channels)}):")
+            for idx, ch in enumerate(channels, start=1):
+                user_str = f" (@{ch['username']})" if ch.get('username') else ""
+                sub_info = f" [{ch.get('sub_type', 'VIP')}]"
+                logger.info(f"  {idx}. {ch['title']}{user_str}{sub_info} [ID: {ch['channel_id']}]")
+        else:
+            logger.info("📡 No channels/groups registered in database yet. (Group calls auto-register when users post CAs)")
+        logger.info("=" * 60)
+    except Exception:
+        pass
+
+    # -------------------------------------------------------------
+    # STEP 6: Starting Price Tracker background engine
+    # -------------------------------------------------------------
+    async def alert_callback(call_data, milestone, image_bytes):
+        await send_milestone_alert(call_data, milestone, image_bytes, bot_app)
+
+    async def consistency_callback(call_data, count, calls_7d):
+        await send_consistency_alert(call_data, count, calls_7d, bot_app)
+
+    logger.info("🚀 [STEP 6/7] Starting Price Tracker background engine...")
+    HealthStatus.startup_stage = "Starting Price Tracker"
+    tracker = PriceTracker(alert_callback=alert_callback, consistency_callback=consistency_callback)
+    tracker_task = asyncio.create_task(tracker.start())
+    logger.info("✅ [STEP 6/7 SUCCESS] Price Tracker background engine started!")
+
+    # -------------------------------------------------------------
+    # STEP 7: Starting periodic background tasks & Keep-Alive
+    # -------------------------------------------------------------
+    if bot_app:
+        logger.info("🚀 [STEP 7/7] Starting periodic background tasks (Trending & Subscriptions)...")
+        trending_task = asyncio.create_task(periodic_trending_poster(bot_app))
+        sub_checker_task = asyncio.create_task(periodic_subscription_checker(bot_app))
+        heartbeat_task = asyncio.create_task(periodic_system_heartbeat())
+        logger.info("✅ [STEP 7/7 SUCCESS] Periodic background tasks running!")
+
     if KEEP_ALIVE_URL:
         asyncio.create_task(keep_alive_worker())
 
-
+    HealthStatus.startup_stage = "100% Operational"
     logger.info("🎉 [KOLINSIGHTS] System 100% operational & running main event loop!")
 
     try:
