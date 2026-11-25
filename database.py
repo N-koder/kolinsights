@@ -28,7 +28,7 @@ _mongo_db = None
 def get_mongo_client() -> Optional[motor.motor_asyncio.AsyncIOMotorClient]:
     global _mongo_client
     if _mongo_client is None:
-        uri = MONGO_URI
+        uri = (MONGO_URI or "").strip(' "\'')
         if not uri:
             return None
         _mongo_client = motor.motor_asyncio.AsyncIOMotorClient(

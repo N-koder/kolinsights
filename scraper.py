@@ -203,15 +203,22 @@ class CallScraper:
         from telethon.sessions import StringSession
         from config import TG_SESSION_STRING
 
-        if TG_SESSION_STRING:
-            logger.info("🔑 [SCRAPER HYBRID ENGINE] Initializing Telethon Userbot via TG_SESSION_STRING...")
-            self.client = TelegramClient(StringSession(TG_SESSION_STRING), int(TG_API_ID), TG_API_HASH)
-        else:
-            self.status_reason = "TG_SESSION_STRING not set in Render environment"
-            logger.info(f"📁 [SCRAPER HYBRID ENGINE] Initializing Telethon Userbot via local session file ({self.session_name}.session)...")
-            self.client = TelegramClient(self.session_name, int(TG_API_ID), TG_API_HASH)
-
         try:
+            clean_session = (TG_SESSION_STRING or "").strip()
+            if (clean_session.startswith('"') and clean_session.endswith('"')) or (clean_session.startswith("'") and clean_session.endswith("'")):
+                clean_session = clean_session[1:-1].strip()
+
+            clean_api_id = int(str(TG_API_ID).strip(' "\''))
+            clean_api_hash = str(TG_API_HASH).strip(' "\'')
+
+            if clean_session:
+                logger.info("🔑 [SCRAPER HYBRID ENGINE] Initializing Telethon Userbot via TG_SESSION_STRING...")
+                self.client = TelegramClient(StringSession(clean_session), clean_api_id, clean_api_hash)
+            else:
+                self.status_reason = "TG_SESSION_STRING not set in Render environment"
+                logger.info(f"📁 [SCRAPER HYBRID ENGINE] Initializing Telethon Userbot via local session file ({self.session_name}.session)...")
+                self.client = TelegramClient(self.session_name, clean_api_id, clean_api_hash)
+
             await self.client.connect()
             is_auth = await self.client.is_user_authorized()
             if not is_auth:

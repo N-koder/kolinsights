@@ -1977,11 +1977,12 @@ async def main():
 
     logger.info("🚀 [STEP 4/7] Initializing Telegram Bot API Command Handler...")
     bot_app = None
-    if not BOT_TOKEN:
+    clean_bot_token = (BOT_TOKEN or "").strip(' "\'')
+    if not clean_bot_token:
         logger.warning("⚠️ [STEP 4/7 WARNING] BOT_TOKEN missing in .env! Interactive Telegram bot commands will not respond.")
     else:
         try:
-            bot_app = ApplicationBuilder().token(BOT_TOKEN).concurrent_updates(True).build()
+            bot_app = ApplicationBuilder().token(clean_bot_token).concurrent_updates(True).build()
             register_handlers(bot_app)
             await bot_app.initialize()
             await bot_app.start()

@@ -7,33 +7,40 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Configuration variables
-TG_API_ID = os.getenv("TG_API_ID")
-TG_API_HASH = os.getenv("TG_API_HASH")
-TG_SESSION_STRING = (os.getenv("TG_SESSION_STRING") or os.getenv("SESSION_STRING") or "").strip()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+def clean_env(val: Optional[str]) -> str:
+    """Strips leading/trailing whitespace and optional wrapping quotes added in cloud dashboards."""
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        s = s[1:-1].strip()
+    return s
 
-raw_alert_channel = os.getenv("ALERT_CHANNEL_ID", "").strip()
+# Configuration variables
+TG_API_ID = clean_env(os.getenv("TG_API_ID"))
+TG_API_HASH = clean_env(os.getenv("TG_API_HASH"))
+TG_SESSION_STRING = clean_env(os.getenv("TG_SESSION_STRING") or os.getenv("SESSION_STRING"))
+BOT_TOKEN = clean_env(os.getenv("BOT_TOKEN"))
+
+raw_alert_channel = clean_env(os.getenv("ALERT_CHANNEL_ID", ""))
 if raw_alert_channel in ("-1001234567890", "1234567890", "123456789", ""):
     ALERT_CHANNEL_ID = None
 else:
     ALERT_CHANNEL_ID = raw_alert_channel
-ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
 
-DB_PATH = os.getenv("DB_PATH", "spydefi.db")
-TRACK_INTERVAL = int(os.getenv("TRACK_INTERVAL", "3"))
+raw_admin_ids = clean_env(os.getenv("ADMIN_IDS", ""))
+ADMIN_IDS = [int(x.strip()) for x in raw_admin_ids.split(",") if x.strip().isdigit()]
+
+DB_PATH = clean_env(os.getenv("DB_PATH", "spydefi.db")) or "spydefi.db"
+TRACK_INTERVAL = int(clean_env(os.getenv("TRACK_INTERVAL", "3")) or "3")
 
 # MongoDB Atlas Configuration
-MONGO_URI = (
-    os.getenv("MONGO_URI") or 
-    os.getenv("MONGODB_URI") or 
-    ""
-).strip()
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "kolinsights").strip()
+MONGO_URI = clean_env(os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "")
+MONGO_DB_NAME = clean_env(os.getenv("MONGO_DB_NAME", "kolinsights")) or "kolinsights"
 
 # Web Service & Render Environment Configuration
-PORT = int(os.getenv("PORT", "8080"))
-KEEP_ALIVE_URL = (os.getenv("KEEP_ALIVE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").strip()
+PORT = int(clean_env(os.getenv("PORT", "8080")) or "8080")
+KEEP_ALIVE_URL = clean_env(os.getenv("KEEP_ALIVE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "")
 
 ANIMATED_EYE_EMOJI_ID = os.getenv("ANIMATED_EYE_EMOJI_ID", "").strip()
 ANIMATED_GRAPH_EMOJI_ID = os.getenv("ANIMATED_GRAPH_EMOJI_ID", "").strip()
