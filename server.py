@@ -3,7 +3,7 @@ import json
 import time
 import threading
 import logging
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 server_logger = logging.getLogger("render_server")
 
@@ -11,9 +11,10 @@ class HealthStatus:
     start_time = time.time()
     bot_app = None
     scraper = None
+    bot_online = False
     bot_error = None
     scraper_error = None
-    build_version = "v2.1-mongo"
+    build_version = "v2.2-stable"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -22,16 +23,8 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
         if self.path in ("/health", "/healthz"):
             uptime = int(time.time() - HealthStatus.start_time)
             scraper = HealthStatus.scraper
-            ub_online = bool(
-                scraper 
-                and getattr(scraper, "is_authorized", False)
-                and scraper.client 
-                and scraper.client.is_connected()
-            )
-            bot_online = bool(
-                HealthStatus.bot_app 
-                and getattr(HealthStatus.bot_app, "bot", None)
-            )
+            ub_online = bool(scraper and getattr(scraper, "is_online", False))
+            bot_online = bool(HealthStatus.bot_online)
             data = {
                 "status": "healthy",
                 "service": "KOLInsights Alpha Tracker",
@@ -61,12 +54,7 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             uptime_str = f"{h}h {m}m {s}s"
             
             scraper = HealthStatus.scraper
-            ub_online = bool(
-                scraper 
-                and getattr(scraper, "is_authorized", False)
-                and scraper.client 
-                and scraper.client.is_connected()
-            )
+            ub_online = bool(scraper and getattr(scraper, "is_online", False))
 
             if ub_online:
                 uname = getattr(scraper, "status_reason", "Connected")
@@ -79,13 +67,10 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
                 elif HealthStatus.scraper_error:
                     reason = HealthStatus.scraper_error
                 else:
-                    reason = getattr(scraper, "status_reason", "Bot API Fallback") if scraper else "Initializing..."
+                    reason = getattr(scraper, "status_reason", "Initializing...") if scraper else "Not Started"
                 ub_badge = f'<span style="color:#ffcc00;font-weight:bold;">● STANDBY ({reason})</span>'
 
-            bot_online = bool(
-                HealthStatus.bot_app 
-                and getattr(HealthStatus.bot_app, "bot", None)
-            )
+            bot_online = bool(HealthStatus.bot_online)
             if bot_online:
                 bot_badge = '<span style="color:#00ff88;font-weight:bold;">● ONLINE (@kolinsightsbot)</span>'
             else:
@@ -191,7 +176,8 @@ def start_render_web_server(port: int = None, bot_app=None, scraper=None):
     HealthStatus.bot_app = bot_app
     HealthStatus.scraper = scraper
 
-    server = HTTPServer(("0.0.0.0", port), RenderHealthHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), RenderHealthHandler)
+    server.daemon_threads = True
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
     server_logger.info(f"🌐 [RENDER WEB SERVICE] HTTP Web Service & Health Check listening on 0.0.0.0:{port}")

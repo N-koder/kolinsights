@@ -1991,12 +1991,14 @@ async def main():
             await bot_app.updater.start_polling()
             logger.info("✅ [STEP 4/7 SUCCESS] Telegram Bot Polling active! Commands (/start, /checkstats, /status, /ping) are operational.")
             HealthStatus.bot_app = bot_app
+            HealthStatus.bot_online = True
             HealthStatus.bot_error = None
         except Exception as bot_err:
             logger.error(f"❌ [STEP 4/7 ERROR] Telegram Bot API initialization failed: {bot_err}")
             logger.warning("⚠️ Please verify that BOT_TOKEN in Render Environment Variables is valid and active!")
             logger.info("ℹ️ System will continue running: Userbot Scraping & Price Tracking remain fully active.")
             HealthStatus.bot_error = str(bot_err)
+            HealthStatus.bot_online = False
             bot_app = None
 
     async def alert_callback(call_data, milestone, image_bytes):

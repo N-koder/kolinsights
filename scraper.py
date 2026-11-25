@@ -191,6 +191,7 @@ class CallScraper:
         self.client: Optional[TelegramClient] = None
         self._processed_events: dict = {}  # (channel_id, event_id) -> timestamp
         self.is_authorized = False
+        self.is_online = False
         self.me = None
         self.status_reason = "Initializing..."
 
@@ -233,6 +234,7 @@ class CallScraper:
                 return
 
             self.is_authorized = True
+            self.is_online = True
             try:
                 from server import HealthStatus
                 HealthStatus.scraper_error = None
