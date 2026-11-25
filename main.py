@@ -1976,10 +1976,12 @@ async def main():
     logger.info("=" * 60)
 
     logger.info("🚀 [STEP 4/7] Initializing Telegram Bot API Command Handler...")
+    from server import HealthStatus
     bot_app = None
     clean_bot_token = (BOT_TOKEN or "").strip(' "\'')
     if not clean_bot_token:
         logger.warning("⚠️ [STEP 4/7 WARNING] BOT_TOKEN missing in .env! Interactive Telegram bot commands will not respond.")
+        HealthStatus.bot_error = "BOT_TOKEN missing in environment"
     else:
         try:
             bot_app = ApplicationBuilder().token(clean_bot_token).concurrent_updates(True).build()
@@ -1988,10 +1990,13 @@ async def main():
             await bot_app.start()
             await bot_app.updater.start_polling()
             logger.info("✅ [STEP 4/7 SUCCESS] Telegram Bot Polling active! Commands (/start, /checkstats, /status, /ping) are operational.")
+            HealthStatus.bot_app = bot_app
+            HealthStatus.bot_error = None
         except Exception as bot_err:
             logger.error(f"❌ [STEP 4/7 ERROR] Telegram Bot API initialization failed: {bot_err}")
             logger.warning("⚠️ Please verify that BOT_TOKEN in Render Environment Variables is valid and active!")
             logger.info("ℹ️ System will continue running: Userbot Scraping & Price Tracking remain fully active.")
+            HealthStatus.bot_error = str(bot_err)
             bot_app = None
 
     async def alert_callback(call_data, milestone, image_bytes):
@@ -2019,11 +2024,9 @@ async def main():
     scraper = CallScraper()
     _global_scraper = scraper
     scraper.bot_app = bot_app
+    HealthStatus.scraper = scraper
     scraper_task = asyncio.create_task(scraper.start())
 
-    from server import HealthStatus
-    HealthStatus.scraper = scraper
-    HealthStatus.bot_app = bot_app
     from config import KEEP_ALIVE_URL
     if KEEP_ALIVE_URL:
         asyncio.create_task(keep_alive_worker())

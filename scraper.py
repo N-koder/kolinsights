@@ -224,10 +224,20 @@ class CallScraper:
             if not is_auth:
                 self.is_authorized = False
                 self.status_reason = "Session string unauthorized or expired"
+                try:
+                    from server import HealthStatus
+                    HealthStatus.scraper_error = "Session string unauthorized or expired"
+                except Exception:
+                    pass
                 logger.warning("⚠️ [SCRAPER HYBRID ENGINE] Telethon Userbot not authorized! Operating in ENGINE 2: Official Telegram Bot API Fallback Mode.")
                 return
 
             self.is_authorized = True
+            try:
+                from server import HealthStatus
+                HealthStatus.scraper_error = None
+            except Exception:
+                pass
             try:
                 self.me = await self.client.get_me()
                 user_display = f"@{self.me.username}" if (self.me and self.me.username) else (self.me.first_name if self.me else "Authorized")
@@ -242,6 +252,11 @@ class CallScraper:
 
         except Exception as e:
             self.status_reason = f"Connection error: {e}"
+            try:
+                from server import HealthStatus
+                HealthStatus.scraper_error = str(e)
+            except Exception:
+                pass
             logger.warning(f"⚠️ [SCRAPER HYBRID ENGINE] Userbot connection notice: {e} ➔ Operating in ENGINE 2: Official Telegram Bot API Fallback Mode.")
             return
 

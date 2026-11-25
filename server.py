@@ -11,9 +11,14 @@ class HealthStatus:
     start_time = time.time()
     bot_app = None
     scraper = None
+    bot_error = None
+    scraper_error = None
+    build_version = "v2.1-mongo"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        from config import TG_SESSION_STRING, TG_API_ID, BOT_TOKEN
+
         if self.path in ("/health", "/healthz"):
             uptime = int(time.time() - HealthStatus.start_time)
             scraper = HealthStatus.scraper
@@ -30,10 +35,17 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             data = {
                 "status": "healthy",
                 "service": "KOLInsights Alpha Tracker",
+                "version": HealthStatus.build_version,
                 "uptime_seconds": uptime,
                 "userbot_connected": ub_online,
                 "userbot_status": getattr(scraper, "status_reason", "Not Initialized") if scraper else "Not Started",
+                "userbot_error": HealthStatus.scraper_error,
                 "bot_api_connected": bot_online,
+                "bot_api_error": HealthStatus.bot_error,
+                "bot_token_configured": bool(BOT_TOKEN),
+                "bot_token_preview": f"{BOT_TOKEN[:6]}...{BOT_TOKEN[-4:]}" if (BOT_TOKEN and len(BOT_TOKEN) > 10) else None,
+                "session_configured": bool(TG_SESSION_STRING),
+                "session_length": len(TG_SESSION_STRING) if TG_SESSION_STRING else 0,
                 "timestamp": int(time.time())
             }
             body = json.dumps(data).encode("utf-8")
@@ -56,7 +68,6 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
                 and scraper.client.is_connected()
             )
 
-            from config import TG_SESSION_STRING, TG_API_ID
             if ub_online:
                 uname = getattr(scraper, "status_reason", "Connected")
                 ub_badge = f'<span style="color:#00ff88;font-weight:bold;">● ONLINE (MTProto: {uname})</span>'
@@ -65,15 +76,21 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
                     reason = "TG_API_ID missing in Render Environment"
                 elif not TG_SESSION_STRING:
                     reason = "TG_SESSION_STRING missing in Render Environment"
+                elif HealthStatus.scraper_error:
+                    reason = HealthStatus.scraper_error
                 else:
-                    reason = getattr(scraper, "status_reason", "Bot API Fallback")
+                    reason = getattr(scraper, "status_reason", "Bot API Fallback") if scraper else "Initializing..."
                 ub_badge = f'<span style="color:#ffcc00;font-weight:bold;">● STANDBY ({reason})</span>'
 
             bot_online = bool(
                 HealthStatus.bot_app 
                 and getattr(HealthStatus.bot_app, "bot", None)
             )
-            bot_badge = '<span style="color:#00ff88;font-weight:bold;">● ONLINE (@kolinsightsbot)</span>' if bot_online else '<span style="color:#ff4444;font-weight:bold;">● OFFLINE (Check BOT_TOKEN)</span>'
+            if bot_online:
+                bot_badge = '<span style="color:#00ff88;font-weight:bold;">● ONLINE (@kolinsightsbot)</span>'
+            else:
+                err_detail = f" ({HealthStatus.bot_error})" if HealthStatus.bot_error else " (Check BOT_TOKEN)"
+                bot_badge = f'<span style="color:#ff4444;font-weight:bold;">● OFFLINE{err_detail}</span>'
 
             html = f"""<!DOCTYPE html>
 <html>
