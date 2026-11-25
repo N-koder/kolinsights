@@ -111,28 +111,28 @@ async def init_db(db_path: str = DB_PATH):
 
         # Ensure counters exist and are >= existing max IDs
         max_call = await db["calls"].find_one(sort=[("id", -1)])
-        max_call_id = max_call["id"] if max_call and "id" in max_call else 0
-        await db["counters"].update_one(
-            {"_id": "call_id", "seq": {"$lt": max_call_id}},
-            {"$set": {"seq": max_call_id}},
-            upsert=True
-        )
+        max_call_id = int(max_call["id"]) if max_call and "id" in max_call else 0
+        existing_call_c = await db["counters"].find_one({"_id": "call_id"})
+        if not existing_call_c:
+            await db["counters"].insert_one({"_id": "call_id", "seq": max_call_id})
+        elif int(existing_call_c.get("seq", 0)) < max_call_id:
+            await db["counters"].update_one({"_id": "call_id"}, {"$set": {"seq": max_call_id}})
 
         max_wallet = await db["deposit_wallets"].find_one(sort=[("id", -1)])
-        max_wallet_id = max_wallet["id"] if max_wallet and "id" in max_wallet else 0
-        await db["counters"].update_one(
-            {"_id": "wallet_id", "seq": {"$lt": max_wallet_id}},
-            {"$set": {"seq": max_wallet_id}},
-            upsert=True
-        )
+        max_wallet_id = int(max_wallet["id"]) if max_wallet and "id" in max_wallet else 0
+        existing_w_c = await db["counters"].find_one({"_id": "wallet_id"})
+        if not existing_w_c:
+            await db["counters"].insert_one({"_id": "wallet_id", "seq": max_wallet_id})
+        elif int(existing_w_c.get("seq", 0)) < max_wallet_id:
+            await db["counters"].update_one({"_id": "wallet_id"}, {"$set": {"seq": max_wallet_id}})
 
         max_payment = await db["payments"].find_one(sort=[("id", -1)])
-        max_payment_id = max_payment["id"] if max_payment and "id" in max_payment else 0
-        await db["counters"].update_one(
-            {"_id": "payment_id", "seq": {"$lt": max_payment_id}},
-            {"$set": {"seq": max_payment_id}},
-            upsert=True
-        )
+        max_payment_id = int(max_payment["id"]) if max_payment and "id" in max_payment else 0
+        existing_p_c = await db["counters"].find_one({"_id": "payment_id"})
+        if not existing_p_c:
+            await db["counters"].insert_one({"_id": "payment_id", "seq": max_payment_id})
+        elif int(existing_p_c.get("seq", 0)) < max_payment_id:
+            await db["counters"].update_one({"_id": "payment_id"}, {"$set": {"seq": max_payment_id}})
 
         logger.info("✅ [MONGODB ATLAS] Database initialized, indexes ensured, and sequence counters synchronized.")
     except Exception as e:

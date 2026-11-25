@@ -8,7 +8,7 @@ env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 def clean_env(val: Optional[str]) -> str:
-    """Strips leading/trailing whitespace and optional wrapping quotes added in cloud dashboards."""
+    """Strips leading/trailing whitespace, newlines, and optional wrapping quotes."""
     if val is None:
         return ""
     s = str(val).strip()
@@ -17,10 +17,13 @@ def clean_env(val: Optional[str]) -> str:
     return s
 
 # Configuration variables
-TG_API_ID = clean_env(os.getenv("TG_API_ID"))
-TG_API_HASH = clean_env(os.getenv("TG_API_HASH"))
-TG_SESSION_STRING = clean_env(os.getenv("TG_SESSION_STRING") or os.getenv("SESSION_STRING"))
-BOT_TOKEN = clean_env(os.getenv("BOT_TOKEN"))
+TG_API_ID = "".join(clean_env(os.getenv("TG_API_ID")).split()).strip(' "\'')
+TG_API_HASH = "".join(clean_env(os.getenv("TG_API_HASH")).split()).strip(' "\'')
+raw_session = clean_env(os.getenv("TG_SESSION_STRING") or os.getenv("SESSION_STRING"))
+TG_SESSION_STRING = "".join(raw_session.split()).strip(' "\'')
+
+raw_bot_token = clean_env(os.getenv("BOT_TOKEN"))
+BOT_TOKEN = "".join(raw_bot_token.split()).strip(' "\'')
 
 raw_alert_channel = clean_env(os.getenv("ALERT_CHANNEL_ID", ""))
 if raw_alert_channel in ("-1001234567890", "1234567890", "123456789", ""):
@@ -35,12 +38,12 @@ DB_PATH = clean_env(os.getenv("DB_PATH", "spydefi.db")) or "spydefi.db"
 TRACK_INTERVAL = int(clean_env(os.getenv("TRACK_INTERVAL", "3")) or "3")
 
 # MongoDB Atlas Configuration
-MONGO_URI = clean_env(os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "")
+MONGO_URI = clean_env(os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "").strip(' "\'')
 MONGO_DB_NAME = clean_env(os.getenv("MONGO_DB_NAME", "kolinsights")) or "kolinsights"
 
 # Web Service & Render Environment Configuration
 PORT = int(clean_env(os.getenv("PORT", "8080")) or "8080")
-KEEP_ALIVE_URL = clean_env(os.getenv("KEEP_ALIVE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "")
+KEEP_ALIVE_URL = clean_env(os.getenv("KEEP_ALIVE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").strip(' "\'')
 
 ANIMATED_EYE_EMOJI_ID = os.getenv("ANIMATED_EYE_EMOJI_ID", "").strip()
 ANIMATED_GRAPH_EMOJI_ID = os.getenv("ANIMATED_GRAPH_EMOJI_ID", "").strip()
