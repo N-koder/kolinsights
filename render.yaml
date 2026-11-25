@@ -29,3 +29,7 @@ services:
         sync: false
       - key: KEEP_ALIVE_URL
         sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: kolinsights

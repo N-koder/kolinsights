@@ -23,6 +23,14 @@ ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.
 DB_PATH = os.getenv("DB_PATH", "spydefi.db")
 TRACK_INTERVAL = int(os.getenv("TRACK_INTERVAL", "3"))
 
+# MongoDB Atlas Configuration
+MONGO_URI = (
+    os.getenv("MONGO_URI") or 
+    os.getenv("MONGODB_URI") or 
+    ""
+).strip()
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "kolinsights").strip()
+
 # Web Service & Render Environment Configuration
 PORT = int(os.getenv("PORT", "8080"))
 KEEP_ALIVE_URL = (os.getenv("KEEP_ALIVE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").strip()

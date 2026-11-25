@@ -1681,7 +1681,7 @@ async def periodic_subscription_checker(bot_app, interval_seconds: int = 21600):
     """Background task that checks subscription expiration and sends private 7d/3d reminders."""
     from datetime import datetime, timezone
     from config import ADMIN_IDS
-    from database import get_all_channels, aiosqlite, DB_PATH
+    from database import get_all_channels, update_channel_reminded, set_channel_sub_type
     from bot_handlers import clean_markdown
 
     logger.info(f"Periodic subscription checker task started (interval: {interval_seconds}s).")
@@ -1740,9 +1740,7 @@ async def periodic_subscription_checker(bot_app, interval_seconds: int = 21600):
                                 except Exception as err:
                                     logger.warning(f"Could not send 3d sub reminder to admin {admin_id} for {c_title}: {err}")
 
-                        async with aiosqlite.connect(DB_PATH) as db:
-                            await db.execute("UPDATE channels SET reminded_3d = 1 WHERE channel_id = ?", (ch["channel_id"],))
-                            await db.commit()
+                        await update_channel_reminded(ch["channel_id"], "reminded_3d", 1)
 
                     # 1-Day Urgent Final Notice (between 0.1 and 1.5 days remaining)
                     elif 0.1 <= days_remaining <= 1.5 and not ch.get("reminded_7d"):
@@ -1773,9 +1771,7 @@ async def periodic_subscription_checker(bot_app, interval_seconds: int = 21600):
                                 except Exception as err:
                                     logger.warning(f"Could not send 1d sub reminder to admin {admin_id} for {c_title}: {err}")
 
-                        async with aiosqlite.connect(DB_PATH) as db:
-                            await db.execute("UPDATE channels SET reminded_7d = 1 WHERE channel_id = ?", (ch["channel_id"],))
-                            await db.commit()
+                        await update_channel_reminded(ch["channel_id"], "reminded_7d", 1)
 
                     # Expired Notice
                     elif days_remaining <= 0 and sub_type != "EXPIRED":
@@ -1803,9 +1799,7 @@ async def periodic_subscription_checker(bot_app, interval_seconds: int = 21600):
                                 except Exception as err:
                                     logger.warning(f"Could not send expired notice to admin {admin_id} for {c_title}: {err}")
 
-                        async with aiosqlite.connect(DB_PATH) as db:
-                            await db.execute("UPDATE channels SET sub_type = 'EXPIRED' WHERE channel_id = ?", (ch["channel_id"],))
-                            await db.commit()
+                        await set_channel_sub_type(ch["channel_id"], "EXPIRED")
 
                 except Exception as parse_err:
                     logger.warning(f"Error checking sub expiry for channel {ch.get('title')}: {parse_err}")
