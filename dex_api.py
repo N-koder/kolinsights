@@ -33,6 +33,22 @@ _shared_client: Optional[httpx.AsyncClient] = None
 _last_request_time: float = 0.0
 _request_lock = asyncio.Lock()
 _ip_cooldown_until: float = 0.0
+_last_cooldown_log: float = 0.0
+
+# In-memory Token Price Cache: addr.lower() -> (timestamp, token_data_dict)
+_token_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+TOKEN_CACHE_TTL = 10.0  # 10s fresh cache for high-frequency tracking
+
+def is_dex_cooling_down() -> bool:
+    """Returns True if DexScreener is currently in 429 cooldown."""
+    global _last_cooldown_log
+    now = time.time()
+    if now < _ip_cooldown_until:
+        if now - _last_cooldown_log > 20.0:
+            logger.info(f"⏳ [DEX API] IP Cooldown active ({_ip_cooldown_until - now:.0f}s left). Pausing DexScreener requests to allow reset...")
+            _last_cooldown_log = now
+        return True
+    return False
 
 def get_http_client() -> httpx.AsyncClient:
     """Returns a persistent, high-performance connection-pooled HTTP client."""
@@ -46,20 +62,15 @@ def get_http_client() -> httpx.AsyncClient:
     return _shared_client
 
 async def _pace_request():
-    """Lightweight non-blocking rate limiter that enforces minimum pacing without freezing concurrent coroutines."""
-    global _last_request_time, _ip_cooldown_until
-    now = time.time()
-
-    if now < _ip_cooldown_until:
-        wait_sec = _ip_cooldown_until - now
-        logger.info(f"⏳ [DEX API] IP Cooldown active. Pausing DexScreener for {wait_sec:.1f}s for automatic reset...")
-        await asyncio.sleep(min(wait_sec, 2.0))
-
-    now = time.time()
-    elapsed = now - _last_request_time
-    if elapsed < 0.1:
-        await asyncio.sleep(0.1 - elapsed)
-    _last_request_time = time.time()
+    """Thread-safe rate limiter ensuring minimum 0.35s between requests to prevent 429s."""
+    global _last_request_time
+    async with _request_lock:
+        now = time.time()
+        elapsed = now - _last_request_time
+        min_pacing = 0.35  # Max ~2.8 req/sec, safely below 300 req/min limit
+        if elapsed < min_pacing:
+            await asyncio.sleep(min_pacing - elapsed)
+        _last_request_time = time.time()
 
 def get_pair_score(p):
     mc_check = float(p.get("marketCap") or p.get("fdv") or 0)
@@ -235,7 +246,7 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
 async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]:
     """
     Fetches real-time market data for up to 30 tokens in 1 single HTTP request.
-    Enforces request pacing and falls back to DexScreener Search endpoint if needed.
+    Enforces strict request pacing, in-memory caching, and full 429 cooldown silence.
     """
     global _ip_cooldown_until
     if not token_addresses:
@@ -245,8 +256,47 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
     if not clean_addrs:
         return {}
 
+    now = time.time()
+    cached_results: Dict[str, Dict[str, Any]] = {}
+    missing_addrs: List[str] = []
+
+    # 1. Check in-memory cache first (TTL 10.0s)
+    for a in clean_addrs:
+        al = a.lower()
+        if al in _token_cache and (now - _token_cache[al][0] < TOKEN_CACHE_TTL):
+            cached_results[al] = _token_cache[al][1]
+            cached_results[a] = _token_cache[al][1]
+        else:
+            missing_addrs.append(a)
+
+    # If all tokens were served from fresh cache, return immediately (0 HTTP requests!)
+    if not missing_addrs:
+        return cached_results
+
+    # 2. If DexScreener is in 429 IP cooldown, DO NOT TOUCH DEXSCREENER!
+    if is_dex_cooling_down():
+        # Serve any slightly older cached entries (up to 180s old)
+        for a in missing_addrs:
+            al = a.lower()
+            if al in _token_cache and (now - _token_cache[al][0] < 180.0):
+                cached_results[al] = _token_cache[al][1]
+                cached_results[a] = _token_cache[al][1]
+
+        # For EVM/Robinhood tokens, fallback to GeckoTerminal
+        for a in missing_addrs:
+            if a.lower() not in cached_results and a.startswith("0x") and not a.lower().endswith("pump"):
+                if a.lower() not in _gecko_miss_cache or (now - _gecko_miss_cache[a.lower()] >= 120.0):
+                    single_res = await fetch_geckoterminal_token_data(a)
+                    if single_res and single_res.get("token_address"):
+                        cached_results[single_res["token_address"].lower()] = single_res
+                        cached_results[a.lower()] = single_res
+                        cached_results[a] = single_res
+                        _token_cache[a.lower()] = (now, single_res)
+                    break
+        return cached_results
+
     client = get_http_client()
-    joined_addrs = ",".join(clean_addrs[:30])
+    joined_addrs = ",".join(missing_addrs[:30])
     url = DEXSCREENER_API_URL.format(token_address=joined_addrs)
 
     try:
@@ -254,26 +304,32 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
         response = await client.get(url)
 
         if response.status_code == 429:
-            _ip_cooldown_until = time.time() + 60.0
-            logger.info("ℹ️ [DEX API] IP Rate-Limited by DexScreener (HTTP 429). Cooling down 60s for automatic reset...")
-            return {}
+            _ip_cooldown_until = time.time() + 65.0
+            logger.warning("⚠️ [DEX API] IP Rate-Limited by DexScreener (HTTP 429). Pausing DexScreener for 65s...")
+            # Return whatever cached tokens we have
+            for a in missing_addrs:
+                al = a.lower()
+                if al in _token_cache:
+                    cached_results[al] = _token_cache[al][1]
+                    cached_results[a] = _token_cache[al][1]
+            return cached_results
 
         if response.status_code != 200:
             logger.debug(f"⚠️ [DEX API] HTTP {response.status_code} status for batch query.")
-            return {}
+            return cached_results
 
         data = response.json()
         pairs = data.get("pairs") or []
         if not pairs:
-            fallback_results: Dict[str, Dict[str, Any]] = {}
-            for addr in clean_addrs:
+            for addr in missing_addrs:
                 if addr.lower() in _gecko_miss_cache and (time.time() - _gecko_miss_cache[addr.lower()] < 120.0):
                     continue
                 single_res = await fetch_geckoterminal_token_data(addr)
                 if single_res and single_res.get("token_address"):
-                    fallback_results[single_res["token_address"].lower()] = single_res
-                    fallback_results[addr.lower()] = single_res
-            return fallback_results
+                    cached_results[single_res["token_address"].lower()] = single_res
+                    cached_results[addr.lower()] = single_res
+                    _token_cache[addr.lower()] = (now, single_res)
+            return cached_results
 
         by_token: Dict[str, list] = {}
         for p in pairs:
@@ -281,11 +337,10 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
             if addr:
                 by_token.setdefault(addr, []).append(p)
 
-        results: Dict[str, Dict[str, Any]] = {}
+        results: Dict[str, Dict[str, Any]] = dict(cached_results)
         for addr_key, token_pairs in by_token.items():
             valid_pairs = [p for p in token_pairs if float(p.get("liquidity", {}).get("usd", 0) or 0) >= 100]
             if not valid_pairs:
-                # All pairs have liquidity < $100 -> Token has been rugged or has dead dust liquidity
                 continue
 
             std_pairs = [
@@ -303,7 +358,6 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
 
             raw_mc = mc_val if mc_val > 0 else fdv_val
 
-            # Sanity anomaly filter: if raw_mc > $2M on low liquidity (< $30K), cap MC at 100x liquidity
             if liq >= 100 and raw_mc > (liq * 100) and raw_mc > 2_000_000:
                 market_cap = min(raw_mc, liq * 100)
             else:
@@ -328,32 +382,48 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
                 "pair_address": primary_pair.get("pairAddress", "")
             }
             results[addr_key.lower()] = token_obj
+            _token_cache[addr_key.lower()] = (now, token_obj)
             if base_addr:
                 results[base_addr.lower()] = token_obj
+                _token_cache[base_addr.lower()] = (now, token_obj)
 
         # Seamless Fallback for any 0x EVM token (e.g. Robinhood DEX pools) that DexScreener missed
-        missing_addrs = [
-            a for a in clean_addrs 
+        evm_missing = [
+            a for a in missing_addrs 
             if a.startswith("0x") and not a.lower().endswith("pump")
             and a.lower() not in results 
             and (a.lower() not in _gecko_miss_cache or (time.time() - _gecko_miss_cache[a.lower()] >= 120.0))
         ]
-        if missing_addrs and time.time() >= _gecko_cooldown_until:
-            for addr in missing_addrs[:1]:  # Check at most 1 Robinhood/EVM token per batch to strictly protect rate limit
+        if evm_missing and time.time() >= _gecko_cooldown_until:
+            for addr in evm_missing[:1]:
                 single_res = await fetch_geckoterminal_token_data(addr)
                 if single_res and single_res.get("token_address"):
                     results[single_res["token_address"].lower()] = single_res
                     results[addr.lower()] = single_res
+                    _token_cache[addr.lower()] = (now, single_res)
 
         logger.info(f"⚡ [DEX BATCH API] Successfully fetched batch of {len(results)}/{len(clean_addrs)} tokens!")
         return results
 
     except Exception as e:
         logger.debug(f"ℹ️ [DEX BATCH API] Batch query notice: {e}")
-        return {}
+        return cached_results
 
 async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Fast, lightweight single DexScreener token fetcher (1 clean request, zero spam)."""
+    """Fast, lightweight single DexScreener token fetcher with cache & cooldown protection."""
+    now = time.time()
+    addr_lower = clean_addr.lower()
+
+    # 1. Check in-memory cache first (TTL 10s)
+    if addr_lower in _token_cache and (now - _token_cache[addr_lower][0] < TOKEN_CACHE_TTL):
+        return _token_cache[addr_lower][1]
+
+    # 2. If DexScreener is in 429 IP cooldown, do not send request!
+    if is_dex_cooling_down():
+        if addr_lower in _token_cache and (now - _token_cache[addr_lower][0] < 180.0):
+            return _token_cache[addr_lower][1]
+        return None
+
     url = DEXSCREENER_API_URL.format(token_address=clean_addr)
     client = get_http_client()
     try:
@@ -361,8 +431,10 @@ async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None
         response = await client.get(url)
         pairs = []
         if response.status_code == 429:
-            _ip_cooldown_until = time.time() + 60.0
-            logger.info("⏳ [DEX API] Rate-Limited (HTTP 429). Pausing DexScreener for 60s...")
+            _ip_cooldown_until = time.time() + 65.0
+            logger.warning("⏳ [DEX API] Rate-Limited (HTTP 429). Pausing DexScreener for 65s...")
+            if addr_lower in _token_cache:
+                return _token_cache[addr_lower][1]
             return None
 
         if response.status_code == 200:
@@ -413,11 +485,11 @@ async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None
 
         base_addr = primary_pair.get("baseToken", {}).get("address") or clean_addr
         symbol = primary_pair.get("baseToken", {}).get("symbol", "UNKNOWN")
-        chain = primary_pair.get("chainId", "unknown")
+        chain_name = primary_pair.get("chainId", "unknown")
 
-        return {
+        token_obj = {
             "token_address": base_addr,
-            "chain": chain,
+            "chain": chain_name,
             "symbol": symbol,
             "name": primary_pair.get("baseToken", {}).get("name", "Unknown Token"),
             "market_cap": market_cap,
@@ -425,8 +497,11 @@ async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None
             "pair_url": primary_pair.get("url", ""),
             "pair_address": primary_pair.get("pairAddress", "")
         }
+        _token_cache[addr_lower] = (now, token_obj)
+        _token_cache[base_addr.lower()] = (now, token_obj)
+        return token_obj
     except Exception:
-        return None
+        return _token_cache.get(addr_lower, (0, None))[1]
 
 async def fetch_token_data(token_address: str, chain: Optional[str] = None, is_new_call: bool = False) -> Optional[Dict[str, Any]]:
     """

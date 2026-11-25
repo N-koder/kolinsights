@@ -232,6 +232,9 @@ class PriceTracker:
                 if total_cold > 0:
                     if slice_offset >= total_cold:
                         slice_offset = 0
+                        logger.info(f"❄️ [ARCHIVAL SWEEPER] Completed full sweep of {total_cold} older calls. Resting 45s before next cycle...")
+                        await asyncio.sleep(45.0)
+                        continue
 
                     # Fetch ONLY the current 30-call slice directly from SQL
                     batch_slice = await get_archival_active_calls_slice(hours_cutoff=2, days=14, offset=slice_offset, limit=30)
@@ -253,6 +256,9 @@ class PriceTracker:
 
                         elapsed = time.time() - start_t
                         logger.info(f"❄️ [ARCHIVAL SWEEPER] Checked slice of {len(batch_slice)}/{total_cold} older calls in {elapsed:.2f}s | Progress: {min(slice_offset, total_cold)}/{total_cold}")
+                else:
+                    await asyncio.sleep(15.0)
+                    continue
 
                 if loop_count % 20 == 0:
                     gc.collect()
@@ -262,4 +268,4 @@ class PriceTracker:
             except Exception as e:
                 logger.error(f"Error in Archival Sweeper loop: {e}", exc_info=True)
 
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(10.0)

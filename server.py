@@ -15,7 +15,7 @@ class HealthStatus:
     bot_error = None
     scraper_error = None
     startup_stage = "Initializing..."
-    build_version = "v2.4-tier-fix"
+    build_version = "v2.5-rate-limit-fix"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
