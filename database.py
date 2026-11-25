@@ -397,12 +397,44 @@ async def get_all_channels(db_path: str = DB_PATH) -> List[Dict[str, Any]]:
     return await cursor.to_list(length=1000)
 
 async def get_channels_by_tier(tier_filter: Optional[str] = None, db_path: str = DB_PATH) -> List[Dict[str, Any]]:
-    db = get_mongo_db()
-    query = {}
-    if tier_filter:
-        query["sub_type"] = {"$regex": f"^{re.escape(tier_filter.strip())}$", "$options": "i"}
-    cursor = db["channels"].find(query, {"_id": 0}).sort("channel_id", 1)
-    return await cursor.to_list(length=1000)
+    """Returns channels filtered by tier: 'VIP', 'TRIAL', 'PAID', 'EXPIRED', or 'ALL'."""
+    all_channels = await get_all_channels(db_path=db_path)
+    if not tier_filter or tier_filter.upper() == "ALL":
+        return all_channels
+
+    from datetime import datetime, timezone
+    now_utc = datetime.now(timezone.utc)
+    target_tier = tier_filter.upper().strip()
+
+    filtered = []
+    for c in all_channels:
+        stype = (c.get("sub_type") or "VIP").upper()
+        sub_end_str = c.get("sub_end")
+        
+        is_expired = False
+        if stype == "EXPIRED":
+            is_expired = True
+        elif sub_end_str and stype not in ("VIP", "LIFETIME"):
+            try:
+                sub_end_dt = datetime.strptime(str(sub_end_str)[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                if now_utc > sub_end_dt:
+                    is_expired = True
+            except Exception:
+                pass
+
+        if target_tier == "EXPIRED" and is_expired:
+            filtered.append(c)
+        elif not is_expired:
+            if target_tier == "VIP" and stype in ("VIP", "LIFETIME"):
+                filtered.append(c)
+            elif target_tier == "TRIAL" and stype == "TRIAL":
+                filtered.append(c)
+            elif target_tier == "PAID" and stype in ("PAID", "ACTIVE"):
+                filtered.append(c)
+            elif target_tier == stype:
+                filtered.append(c)
+
+    return filtered
 
 async def bulk_set_channel_status(targets: List[str], sub_type: str, days: int = 30, db_path: str = DB_PATH) -> List[str]:
     updated = []
