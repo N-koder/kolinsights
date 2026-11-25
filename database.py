@@ -31,13 +31,21 @@ def get_mongo_client() -> Optional[motor.motor_asyncio.AsyncIOMotorClient]:
         uri = (MONGO_URI or "").strip(' "\'')
         if not uri:
             return None
+        client_kwargs = {
+            "serverSelectionTimeoutMS": 5000,
+            "connectTimeoutMS": 5000,
+            "socketTimeoutMS": 10000,
+            "maxPoolSize": 50,
+            "minPoolSize": 5
+        }
+        try:
+            import certifi
+            client_kwargs["tlsCAFile"] = certifi.where()
+        except Exception:
+            pass
         _mongo_client = motor.motor_asyncio.AsyncIOMotorClient(
             uri,
-            serverSelectionTimeoutMS=5000,
-            connectTimeoutMS=5000,
-            socketTimeoutMS=10000,
-            maxPoolSize=50,
-            minPoolSize=5
+            **client_kwargs
         )
     return _mongo_client
 
