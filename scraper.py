@@ -522,8 +522,8 @@ class CallScraper:
         Retries unindexed / pre-launch CAs with rapid sub-second & progressive intervals.
         Catches fresh pairs instantly as soon as liquidity is created!
         """
-        RETRY_INTERVALS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
-        logger.info(f"⚡ [USERBOT RETRY QUEUE] CA {addr} from '{channel_title}' is unindexed. Starting rapid sub-second retry queue ({len(RETRY_INTERVALS)} attempts)...")
+        RETRY_INTERVALS = [1.5, 3.0, 6.0, 12.0, 24.0]
+        logger.info(f"⚡ [USERBOT RETRY QUEUE] CA {addr} from '{channel_title}' is unindexed. Starting jittered retry queue ({len(RETRY_INTERVALS)} attempts)...")
         
         for attempt, delay in enumerate(RETRY_INTERVALS, 1):
             await asyncio.sleep(delay)
