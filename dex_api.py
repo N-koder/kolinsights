@@ -95,6 +95,51 @@ _circuit_breaker = DexCircuitBreaker()
 def is_dex_cooling_down() -> bool:
     return not _circuit_breaker.is_available()
 
+class GeckoCircuitBreaker:
+    """
+    Guards GeckoTerminal against rate limits and IP blocks.
+    Gecko rate limit window is 60s. When tripped, pauses Gecko calls for 60-75s
+    and lets DexScreener or the RAM Cache serve traffic until the IP window clears.
+    """
+    def __init__(self):
+        self.state = "CLOSED"
+        self.tripped_until = 0.0
+        self.last_log_time = 0.0
+
+    def is_available(self) -> bool:
+        now = time.time()
+        if self.state == "OPEN":
+            if now >= self.tripped_until:
+                self.state = "HALF_OPEN"
+                logger.info("🔄 [GECKO BREAKER] Half-open probe: Testing GeckoTerminal recovery...")
+                return True
+            if now - self.last_log_time > 30.0:
+                rem_sec = max(0.0, self.tripped_until - now)
+                logger.info(f"🛡️ [GECKO BREAKER: OPEN] GeckoTerminal paused ({rem_sec:.0f}s left). Routing to DexScreener / RAM Cache.")
+                self.last_log_time = now
+            return False
+        return True
+
+    def record_success(self):
+        if self.state != "CLOSED":
+            logger.info("✅ [GECKO BREAKER: CLOSED] GeckoTerminal recovered! Normal pacing active.")
+        self.state = "CLOSED"
+
+    def record_429(self):
+        jitter = random.uniform(5.0, 15.0)
+        cooldown = 60.0 + jitter
+        self.tripped_until = time.time() + cooldown
+        self.state = "OPEN"
+        logger.warning(
+            f"🚨 [GECKO BREAKER: OPEN] GeckoTerminal 429 detected! "
+            f"Cooling down {cooldown:.0f}s for automatic window reset. Traffic seamlessly routed to DexScreener / RAM Cache."
+        )
+
+_gecko_circuit_breaker = GeckoCircuitBreaker()
+
+def is_gecko_cooling_down() -> bool:
+    return not _gecko_circuit_breaker.is_available()
+
 # ============================================================================
 # MASTER PATTERN 2: DUAL TOKEN BUCKET RATE LIMITERS (Handbook Section 4B)
 # Hard Ceilings:
@@ -223,6 +268,9 @@ async def fetch_geckoterminal_multi_tokens(network: str, addresses: List[str]) -
     if not clean_addrs:
         return {}
 
+    if not _gecko_circuit_breaker.is_available():
+        return {}
+
     target_net = NETWORK_MAP.get(network.lower().strip(), network.lower().strip())
     joined = ",".join(clean_addrs[:30])
     url = f"https://api.geckoterminal.com/api/v2/networks/{target_net}/tokens/multi/{joined}"
@@ -234,11 +282,13 @@ async def fetch_geckoterminal_multi_tokens(network: str, addresses: List[str]) -
         resp = await client.get(url)
 
         if resp.status_code == 429:
-            logger.warning("⏳ [GECKO MULTI API] 429 Rate-Limit. Pausing Gecko calls...")
+            _gecko_circuit_breaker.record_429()
             return {}
 
         if resp.status_code != 200:
             return {}
+
+        _gecko_circuit_breaker.record_success()
 
         data = resp.json().get("data", [])
         for item in data:
@@ -289,6 +339,9 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
     if cached:
         return cached
 
+    if not _gecko_circuit_breaker.is_available():
+        return None
+
     # Auto-detect target network if not specified
     if not chain:
         if clean_addr.startswith("0x"):
@@ -307,7 +360,11 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
     try:
         await _pace_gecko_request()
         s_resp = await client.get(search_url)
+        if s_resp.status_code == 429:
+            _gecko_circuit_breaker.record_429()
+            return None
         if s_resp.status_code == 200:
+            _gecko_circuit_breaker.record_success()
             data = s_resp.json().get("data", [])
             for chosen_pool in data:
                 pool_id = chosen_pool.get("id", "")
@@ -618,9 +675,11 @@ async def fetch_token_data(token_address: str, chain: Optional[str] = None, is_n
         if res and res.get("market_cap", 0) > 0:
             return res
 
-    # Step 3: Instant Fallback to GeckoTerminal (Guarded by 15 req/min ceiling)
-    gecko_res = await fetch_geckoterminal_token_data(clean_addr, chain=chain)
-    if gecko_res and gecko_res.get("market_cap", 0) > 0:
-        return gecko_res
+    # Step 3: Instant Fallback to GeckoTerminal (Guarded by 15 req/min ceiling & GeckoCircuitBreaker)
+    if _gecko_circuit_breaker.is_available():
+        gecko_res = await fetch_geckoterminal_token_data(clean_addr, chain=chain)
+        if gecko_res and gecko_res.get("market_cap", 0) > 0:
+            return gecko_res
 
+    # Step 4: If BOTH Dex & Gecko are cooling down, return stale cache (up to 300s)
     return _token_lru_cache.get(clean_addr, max_age=300.0)
