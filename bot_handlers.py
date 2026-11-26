@@ -1433,6 +1433,14 @@ async def setchannel_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """Global exception handler to log unhandled errors gracefully."""
+    from telegram.error import Conflict, NetworkError, TimedOut
+    if isinstance(context.error, Conflict):
+        logger.warning(f"⚠️ [TELEGRAM CONFLICT] Polling conflict detected (overlapping deployment instance): {context.error}")
+        return
+    if isinstance(context.error, (NetworkError, TimedOut)):
+        logger.debug(f"Telegram network notice: {context.error}")
+        return
+
     logger.error("Exception handling update:", exc_info=context.error)
     if isinstance(update, Update) and update.effective_message:
         try:

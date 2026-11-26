@@ -15,7 +15,7 @@ class HealthStatus:
     bot_error = None
     scraper_error = None
     startup_stage = "Initializing..."
-    build_version = "v2.7-zero-429-engine"
+    build_version = "v2.8-zero-conflict-rate-immune"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -25,7 +25,7 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
             uptime = int(time.time() - HealthStatus.start_time)
             scraper = HealthStatus.scraper
             ub_online = bool(scraper and getattr(scraper, "is_online", False))
-            bot_online = bool(HealthStatus.bot_online)
+            bot_online = bool(HealthStatus.bot_online and (not HealthStatus.bot_app or not getattr(HealthStatus.bot_app, "updater", None) or getattr(HealthStatus.bot_app.updater, "running", True)))
             data = {
                 "status": "healthy",
                 "service": "KOLInsights Alpha Tracker",
@@ -72,7 +72,7 @@ class RenderHealthHandler(BaseHTTPRequestHandler):
                     reason = getattr(scraper, "status_reason", "Initializing...") if scraper else "Not Started"
                 ub_badge = f'<span style="color:#ffcc00;font-weight:bold;">● STANDBY ({reason})</span>'
 
-            bot_online = bool(HealthStatus.bot_online)
+            bot_online = bool(HealthStatus.bot_online and (not HealthStatus.bot_app or not getattr(HealthStatus.bot_app, "updater", None) or getattr(HealthStatus.bot_app.updater, "running", True)))
             if bot_online:
                 bot_badge = '<span style="color:#00ff88;font-weight:bold;">● ONLINE (@kolinsightsbot)</span>'
             else:

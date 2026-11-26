@@ -1937,6 +1937,31 @@ async def keep_alive_worker():
         except Exception as e:
             logger.debug(f"Keep-alive ping notice: {e}")
 
+async def _bot_polling_watchdog(bot_app):
+    """Monitors Telegram Bot updater and automatically recovers from Conflict or temporary network drops."""
+    from server import HealthStatus
+    while True:
+        try:
+            await asyncio.sleep(10.0)
+            if bot_app and getattr(bot_app, "updater", None):
+                is_running = getattr(bot_app.updater, "running", False)
+                HealthStatus.bot_online = is_running
+                if not is_running:
+                    logger.warning("⚠️ [BOT WATCHDOG] Polling detected as stopped (Conflict/network drop). Auto-recovering polling now...")
+                    try:
+                        await bot_app.updater.start_polling(drop_pending_updates=True, bootstrap_retries=-1)
+                        HealthStatus.bot_online = True
+                        HealthStatus.bot_error = None
+                        logger.info("✅ [BOT WATCHDOG] Polling successfully recovered and active!")
+                    except Exception as poll_e:
+                        HealthStatus.bot_online = False
+                        HealthStatus.bot_error = f"Recovery pending: {poll_e}"
+                        logger.warning(f"⚠️ [BOT WATCHDOG] Polling recovery attempt: {poll_e}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.debug(f"Bot watchdog notice: {e}")
+
 async def main():
     import sys
     if hasattr(sys.stdout, "reconfigure"):
@@ -1982,11 +2007,27 @@ async def main():
             register_handlers(bot_app)
             await bot_app.initialize()
             await bot_app.start()
-            await bot_app.updater.start_polling()
-            logger.info("✅ [STEP 2/7 SUCCESS] Telegram Bot Polling active! (@kolinsightsbot commands /start, /checkstats, /status, /ping are operational).")
-            HealthStatus.bot_app = bot_app
-            HealthStatus.bot_online = True
-            HealthStatus.bot_error = None
+
+            # Start polling with retries to gracefully handle overlapping rolling deploys
+            retries = 5
+            while retries > 0:
+                try:
+                    await bot_app.updater.start_polling(drop_pending_updates=True, bootstrap_retries=-1)
+                    HealthStatus.bot_app = bot_app
+                    HealthStatus.bot_online = True
+                    HealthStatus.bot_error = None
+                    logger.info("✅ [STEP 2/7 SUCCESS] Telegram Bot Polling active! (@kolinsightsbot commands /start, /checkstats, /status, /ping are operational).")
+                    break
+                except Exception as poll_err:
+                    retries -= 1
+                    if retries > 0:
+                        logger.warning(f"⚠️ [BOT POLLING RETRY] start_polling notice ({poll_err}). Waiting 4s for previous container shutdown... ({retries} retries left)")
+                        await asyncio.sleep(4.0)
+                    else:
+                        raise poll_err
+
+            # Spawn watchdog to keep polling alive forever
+            asyncio.create_task(_bot_polling_watchdog(bot_app))
         except Exception as bot_err:
             logger.error(f"❌ [BOT API ERROR] Telegram Bot API initialization failed: {bot_err}")
             HealthStatus.bot_error = str(bot_err)
