@@ -212,7 +212,7 @@ class PriceTracker:
             except Exception as e:
                 logger.error(f"Error in Hot Turbo Tracker loop: {e}", exc_info=True)
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(2.5)
 
     async def _archival_tracker_loop(self):
         """Lane 2: Gentle background sweeper for older calls (2h to 14 days). Slices of 30 tokens every 5s."""

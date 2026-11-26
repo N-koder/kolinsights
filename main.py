@@ -19,6 +19,9 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
+# Silence routine httpx/httpcore polling logs to keep logs clean and alert-focused
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("alpharadar_main")
 
 _global_bot_app = None

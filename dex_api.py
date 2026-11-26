@@ -37,11 +37,11 @@ STANDARD_QUOTE_SYMBOLS = {
 _shared_client: Optional[httpx.AsyncClient] = None
 
 def get_http_client() -> httpx.AsyncClient:
-    """Returns a persistent, connection-pooled HTTP client with HTTP/2 and keep-alive."""
+    """Returns a persistent, connection-pooled HTTP client with keep-alive."""
     global _shared_client
     if _shared_client is None or _shared_client.is_closed:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             "Accept": "application/json"
         }
         limits = httpx.Limits(max_keepalive_connections=50, max_connections=100, keepalive_expiry=30)
@@ -49,16 +49,16 @@ def get_http_client() -> httpx.AsyncClient:
     return _shared_client
 
 # ============================================================================
-# MASTER PATTERN 1: CIRCUIT BREAKER PATTERN (Handbook Section 4D & 8C)
-# Protects system from third-party 429s. Automatically fails over to GeckoTerminal.
+# MASTER PATTERN 1: 30-MINUTE CIRCUIT BREAKER (Handbook Section 4D)
+# Completely silences DexScreener when cloud IP is saturated, routing to GeckoTerminal.
 # ============================================================================
 class DexCircuitBreaker:
     """
-    Three-state Circuit Breaker:
-      - CLOSED: Normal operation. Requests flow to DexScreener.
-      - OPEN: DexScreener returned 429. Tripped for exponential backoff duration + jitter.
-              DexScreener is 100% silenced. All requests route to GeckoTerminal/Cache.
-      - HALF_OPEN: Test probe after cooldown to verify DexScreener recovery.
+    Industrial-grade Circuit Breaker:
+      - CLOSED: Normal operation.
+      - OPEN: DexScreener returned 429. Muted for 1800s (30 minutes).
+              Zero requests touch DexScreener; 100% routed to GeckoTerminal.
+      - HALF_OPEN: Single probe request after 30m to test if Cloudflare block cleared.
     """
     def __init__(self):
         self.state = "CLOSED"
@@ -72,46 +72,45 @@ class DexCircuitBreaker:
         if self.state == "OPEN":
             if now >= self.tripped_until:
                 self.state = "HALF_OPEN"
-                logger.info("🔄 [CIRCUIT BREAKER] Entering HALF-OPEN state. Probing DexScreener with 1 test request...")
+                logger.info("🔄 [CIRCUIT BREAKER] Entering HALF-OPEN probe. Testing DexScreener recovery...")
                 return True
-            if now - self.last_log_time > 20.0:
-                rem = max(0.0, self.tripped_until - now)
-                logger.info(f"🛡️ [CIRCUIT BREAKER: OPEN] DexScreener in active cooldown ({rem:.0f}s left). Routing 100% traffic to GeckoTerminal/Cache.")
+            if now - self.last_log_time > 60.0:
+                rem_min = max(0.0, (self.tripped_until - now) / 60.0)
+                logger.info(f"🛡️ [CIRCUIT BREAKER: OPEN] DexScreener paused ({rem_min:.1f}m remaining). Running 100% on GeckoTerminal & RAM Cache.")
                 self.last_log_time = now
             return False
         return True
 
     def record_success(self):
         if self.state != "CLOSED":
-            logger.info("✅ [CIRCUIT BREAKER: CLOSED] DexScreener recovered! Resetting circuit breaker to normal.")
+            logger.info("✅ [CIRCUIT BREAKER: CLOSED] DexScreener probe successful! Resetting to normal.")
         self.state = "CLOSED"
         self.consecutive_429s = 0
 
     def record_429(self):
         self.consecutive_429s += 1
-        # Exponential backoff with jitter: 60s * (1.5 ^ failures) + random(3, 10)s
-        multiplier = 1.5 ** min(self.consecutive_429s - 1, 4)
-        jitter = random.uniform(3.0, 10.0)
-        cooldown = (60.0 * multiplier) + jitter
+        # On shared cloud hosting (Render), IP blocks last 15-30 minutes.
+        # Silence DexScreener for 1800s (30m) + jitter to allow complete IP reset.
+        jitter = random.uniform(30.0, 120.0)
+        cooldown = 1800.0 + jitter
         self.tripped_until = time.time() + cooldown
         self.state = "OPEN"
         logger.warning(
-            f"🚨 [CIRCUIT BREAKER: OPEN] DexScreener 429 Rate-Limit (Strike #{self.consecutive_429s})! "
-            f"Silencing DexScreener for {cooldown:.1f}s. Seamlessly falling back to GeckoTerminal."
+            f"🚨 [CIRCUIT BREAKER: OPEN] DexScreener 429 detected! "
+            f"Muting DexScreener for {cooldown/60.0:.1f} minutes. All requests seamlessly routed to GeckoTerminal."
         )
 
 _circuit_breaker = DexCircuitBreaker()
 
-# Backward compatibility alias
 def is_dex_cooling_down() -> bool:
     return not _circuit_breaker.is_available()
 
 # ============================================================================
 # MASTER PATTERN 2: TOKEN BUCKET RATE LIMITER (Handbook Section 4B)
-# Enforces strictly smooth outbound flow to DexScreener (max 1.5 req/sec = 90/min).
+# Enforces strictly smooth outbound flow (max 1.0 req/sec = 60 req/min).
 # ============================================================================
 class TokenBucketLimiter:
-    def __init__(self, capacity: float = 3.0, refill_rate: float = 1.5):
+    def __init__(self, capacity: float = 2.0, refill_rate: float = 1.0):
         self.capacity = capacity
         self.refill_rate = refill_rate
         self.tokens = capacity
@@ -132,17 +131,17 @@ class TokenBucketLimiter:
             else:
                 self.tokens -= 1.0
 
-_token_bucket = TokenBucketLimiter(capacity=3.0, refill_rate=1.5)
+_token_bucket = TokenBucketLimiter(capacity=2.0, refill_rate=1.0)
 
 async def _pace_request():
     await _token_bucket.acquire()
 
 # ============================================================================
 # MASTER PATTERN 3: O(1) LRU IN-MEMORY TOKEN CACHE (Handbook Section 2D & 5A)
-# Eliminates redundant network calls for identical active tokens.
+# 25s TTL for hot calls, up to 300s fallback during cooldown.
 # ============================================================================
 class LRUTokenCache:
-    def __init__(self, maxsize: int = 2500, default_ttl: float = 12.0):
+    def __init__(self, maxsize: int = 3000, default_ttl: float = 25.0):
         self.maxsize = maxsize
         self.default_ttl = default_ttl
         self.cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
@@ -177,7 +176,7 @@ class LRUTokenCache:
         self.cache[k] = (now, data)
         self.order.append(k)
 
-_token_lru_cache = LRUTokenCache(maxsize=2500, default_ttl=12.0)
+_token_lru_cache = LRUTokenCache(maxsize=3000, default_ttl=25.0)
 
 # ============================================================================
 # PAIR SCORING HEURISTIC
@@ -192,7 +191,6 @@ def get_pair_score(p: dict) -> float:
     txns_dict = p.get("txns", {}).get("h24", {}) or {}
     txns_count = int(txns_dict.get("buys", 0) or 0) + int(txns_dict.get("sells", 0) or 0)
 
-    # Heavily downrank dead dust pools with negligible liquidity (< $50) and negligible volume (< $50)
     if liq < 50 and vol_24h < 50:
         return 0.001 * has_mc
 
@@ -205,7 +203,7 @@ def get_pair_score(p: dict) -> float:
 
 # ============================================================================
 # MASTER PATTERN 4: UNIVERSAL GECKOTERMINAL ENGINE (Handbook Section 8B)
-# High-speed fallback for ANY chain (Solana, Base, BSC, ETH, Arbitrum, etc.)
+# High-speed resolver for Solana, Ethereum, Base, BSC, Arbitrum, Tron, etc.
 # ============================================================================
 _gecko_cooldown_until: float = 0.0
 _last_gecko_request_time: float = 0.0
@@ -231,7 +229,7 @@ async def _pace_gecko_request() -> bool:
 async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Universal multi-chain DEX data fetcher powered by GeckoTerminal.
-    Works for Solana, Ethereum, Base, BSC, Arbitrum, Polygon, Avalanche, and any other chain!
+    Resolves Solana, Ethereum, Base, BSC, Arbitrum, Polygon, Avalanche, and any other chain!
     """
     global _gecko_cooldown_until
     if not token_address:
@@ -249,7 +247,6 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
     if now < _gecko_cooldown_until:
         return None
 
-    # Check negative miss cache
     if addr_lower in _gecko_miss_cache and (now - _gecko_miss_cache[addr_lower] < 90.0):
         return None
 
@@ -298,7 +295,7 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
                     logger.info(f"🦎 [GECKO MATCH] ✅ ${symbol} on {target_net.upper()} | MC: ${fdv:,.0f} | Liq: ${liq:,.0f}")
                     return token_obj
 
-        # Strategy B: Universal Pool Search (Works for any token on any network: Solana, ETH, Base, etc.)
+        # Strategy B: Universal Pool Search (Works for any token on any network: Solana, ETH, Base, BSC)
         search_url = f"https://api.geckoterminal.com/api/v2/search/pools?query={clean_addr}"
         s_resp = await client.get(search_url)
 
@@ -317,7 +314,6 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
                 base_token_id = chosen_pool.get("relationships", {}).get("base_token", {}).get("data", {}).get("id", "")
                 base_addr = base_token_id.split("_", 1)[1] if "_" in base_token_id else (attr.get("address") or clean_addr)
 
-                # Validate match against base token
                 if base_addr.lower() != addr_lower and clean_addr.lower() not in pool_id.lower():
                     continue
 
@@ -354,13 +350,14 @@ async def fetch_geckoterminal_token_data(token_address: str, chain: Optional[str
 
 # ============================================================================
 # MASTER PATTERN 5: HIGH-PERFORMANCE DUAL-ENGINE BATCH FETCHER
-# Primary: DexScreener (with Token Bucket & Circuit Breaker)
-# Secondary: GeckoTerminal (Zero dropped calls on 429)
 # ============================================================================
 async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]:
     """
-    Fetches real-time market data for multiple tokens with zero 429 spam,
-    in-memory caching, token-bucket pacing, and instant GeckoTerminal failover.
+    Fetches real-time market data for multiple tokens.
+    Guaranteed zero 429 rate limit spam:
+      1. Returns from RAM cache if within 25s TTL.
+      2. If DexScreener is in cooldown, 100% routes to GeckoTerminal.
+      3. If DexScreener responds with 429, mutes DexScreener for 30m and seamlessly queries GeckoTerminal.
     """
     if not token_addresses:
         return {}
@@ -372,29 +369,27 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
     cached_results: Dict[str, Dict[str, Any]] = {}
     missing_addrs: List[str] = []
 
-    # 1. Step 1: Query In-Memory LRU Cache in O(1)
+    # 1. Step 1: Query In-Memory LRU Cache in O(1) (0ms, 0 HTTP calls!)
     for a in clean_addrs:
-        data = _token_lru_cache.get(a, max_age=15.0)
+        data = _token_lru_cache.get(a, max_age=25.0)
         if data:
             cached_results[a.lower()] = data
             cached_results[a] = data
         else:
             missing_addrs.append(a)
 
-    # If all tokens are served from cache, return immediately (0ms, 0 HTTP calls!)
     if not missing_addrs:
         return cached_results
 
     # 2. Step 2: Check Circuit Breaker
     if not _circuit_breaker.is_available():
-        # Circuit is OPEN! DexScreener is rate-limited. Serve from cache and fallback to GeckoTerminal
+        # Circuit is OPEN (DexScreener paused). Serve from slightly older cache and GeckoTerminal
         for a in missing_addrs:
-            data = _token_lru_cache.get(a, max_age=180.0)
+            data = _token_lru_cache.get(a, max_age=300.0)
             if data:
                 cached_results[a.lower()] = data
                 cached_results[a] = data
 
-        # Query GeckoTerminal for remaining missing addresses (limit to 2 per cycle to respect Gecko pacing)
         still_missing = [a for a in missing_addrs if a.lower() not in cached_results]
         for a in still_missing[:2]:
             gecko_res = await fetch_geckoterminal_token_data(a)
@@ -404,7 +399,7 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
 
         return cached_results
 
-    # 3. Step 3: DexScreener Batch Query with Token Bucket Rate Limiting
+    # 3. Step 3: DexScreener Batch Query with Token Bucket Pacing
     client = get_http_client()
     joined_addrs = ",".join(missing_addrs[:30])
     url = DEXSCREENER_API_URL.format(token_address=joined_addrs)
@@ -415,7 +410,7 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
 
         if response.status_code == 429:
             _circuit_breaker.record_429()
-            # Instant Fallback: Query GeckoTerminal for the tokens so tracking never pauses!
+            # Instant Failover to GeckoTerminal
             for a in missing_addrs[:2]:
                 gecko_res = await fetch_geckoterminal_token_data(a)
                 if gecko_res:
@@ -424,7 +419,6 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
             return cached_results
 
         if response.status_code != 200:
-            logger.debug(f"⚠️ [DEX API] HTTP {response.status_code} status for batch query.")
             return cached_results
 
         _circuit_breaker.record_success()
@@ -432,7 +426,6 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
         pairs = data.get("pairs") or []
 
         if not pairs:
-            # Fallback to GeckoTerminal if DexScreener returned no pairs
             for addr in missing_addrs[:2]:
                 single_res = await fetch_geckoterminal_token_data(addr)
                 if single_res:
@@ -502,18 +495,17 @@ async def fetch_tokens_batch(token_addresses: list) -> Dict[str, Dict[str, Any]]
         return cached_results
 
 # ============================================================================
-# MASTER PATTERN 6: SINGLE-TOKEN FETCHER WITH CIRCUIT BREAKER & FAST FAILOVER
+# MASTER PATTERN 6: GECKOTERMINAL-FIRST SINGLE TOKEN RESOLVER
+# Never hits DexScreener if GeckoTerminal resolves the token!
 # ============================================================================
 async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Fetches a single token from DexScreener guarded by the Circuit Breaker."""
-    # 1. Check LRU Cache
-    cached = _token_lru_cache.get(clean_addr, max_age=12.0)
+    """Guarded DexScreener single-token fetcher."""
+    cached = _token_lru_cache.get(clean_addr, max_age=25.0)
     if cached:
         return cached
 
-    # 2. Check Circuit Breaker
     if not _circuit_breaker.is_available():
-        return _token_lru_cache.get(clean_addr, max_age=180.0)
+        return _token_lru_cache.get(clean_addr, max_age=300.0)
 
     url = DEXSCREENER_API_URL.format(token_address=clean_addr)
     client = get_http_client()
@@ -524,7 +516,7 @@ async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None
 
         if response.status_code == 429:
             _circuit_breaker.record_429()
-            return _token_lru_cache.get(clean_addr, max_age=180.0)
+            return _token_lru_cache.get(clean_addr, max_age=300.0)
 
         if response.status_code != 200:
             return None
@@ -593,41 +585,37 @@ async def _fetch_dexscreener_single(clean_addr: str, chain: Optional[str] = None
         return token_obj
 
     except Exception:
-        return _token_lru_cache.get(clean_addr, max_age=180.0)
+        return _token_lru_cache.get(clean_addr, max_age=300.0)
 
 async def fetch_token_data(token_address: str, chain: Optional[str] = None, is_new_call: bool = False) -> Optional[Dict[str, Any]]:
     """
-    Primary token resolution function with Dual-Engine routing:
-    1. Checks O(1) LRU in-memory cache.
-    2. If Circuit Breaker is OPEN -> Immediately queries GeckoTerminal.
-    3. If Circuit Breaker is CLOSED -> Queries DexScreener with instant GeckoTerminal fallback on 429.
+    Guaranteed Zero-Rate-Limit Token Resolver:
+      1. O(1) In-Memory Cache (0ms).
+      2. GeckoTerminal Universal Engine (Fast, never hits DexScreener if resolved).
+      3. DexScreener Fallback (Only if Gecko misses AND Circuit Breaker is CLOSED).
     """
     if not token_address:
         return None
 
     clean_addr = token_address.strip()
 
-    # Step 1: Check In-Memory Cache (0ms)
-    cached = _token_lru_cache.get(clean_addr, max_age=12.0)
+    # Step 1: In-Memory Cache Lookup (0ms)
+    cached = _token_lru_cache.get(clean_addr, max_age=25.0)
     if cached and cached.get("market_cap", 0) > 0:
         return cached
 
-    # Step 2: If DexScreener Circuit Breaker is OPEN, route directly to GeckoTerminal
-    if not _circuit_breaker.is_available():
-        gecko_res = await fetch_geckoterminal_token_data(clean_addr, chain=chain)
-        if gecko_res and gecko_res.get("market_cap", 0) > 0:
-            return gecko_res
-        # Return last-known cached data if available
-        return _token_lru_cache.get(clean_addr, max_age=180.0)
-
-    # Step 3: DexScreener Primary Query
-    res = await _fetch_dexscreener_single(clean_addr, chain=chain)
-    if res and res.get("market_cap", 0) > 0:
-        return res
-
-    # Step 4: Graceful Degradation Fallback to GeckoTerminal
+    # Step 2: GeckoTerminal-First Strategy
+    # If GeckoTerminal resolves the token, DexScreener is NEVER TOUCHED!
     gecko_res = await fetch_geckoterminal_token_data(clean_addr, chain=chain)
     if gecko_res and gecko_res.get("market_cap", 0) > 0:
+        _token_lru_cache.put(clean_addr, gecko_res)
         return gecko_res
 
-    return None
+    # Step 3: DexScreener Secondary Fallback (only if Circuit Breaker is healthy)
+    if _circuit_breaker.is_available():
+        res = await _fetch_dexscreener_single(clean_addr, chain=chain)
+        if res and res.get("market_cap", 0) > 0:
+            return res
+
+    # Step 4: Return any cached historical data if available
+    return _token_lru_cache.get(clean_addr, max_age=300.0)
