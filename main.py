@@ -299,13 +299,10 @@ def get_chain_slug_and_explorer(chain: str, token_addr: str):
 
 def build_trade_buttons(call_data: dict, bot_username: str = "kolinsightsbot"):
     """
-    Builds clean, ultra-responsive trading and chart buttons:
-    - Maestro 1-Click Buy Bot: https://t.me/MaestroSniperBot?start={ca}
-    - Smart DEX / GMGN Button:
-        * If indexed with pair -> DexScreener
-        * If new launch without pair -> GMGN (indexes from block 0)
-        * Fallback -> Explorer
-    - Action links: View Call & View Stats
+    Builds clean, ultra-responsive trading, chart, and 1-tap copy buttons:
+    - Row 0: 1-Tap Copy CA Button: copies full CA without taking up screen space!
+    - Row 1: Maestro Buy Bot & DexScreener/GMGN Chart Bot
+    - Row 2: Action links: View Call & View Stats
     """
     from telethon import Button
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -335,6 +332,25 @@ def build_trade_buttons(call_data: dict, bot_username: str = "kolinsightsbot"):
         chart_label = f"🔍 {explorer_name}"
         chart_url = explorer_url
 
+    # Shortened CA for clean display
+    if len(token_addr) > 16:
+        short_ca = f"{token_addr[:6]}...{token_addr[-4:]}"
+    else:
+        short_ca = token_addr
+
+    # 1-Tap Copy CA button (native Telegram clipboard copy of full address)
+    try:
+        from telethon.tl.types import KeyboardButtonCopy
+        tele_row0 = [KeyboardButtonCopy(f"📋 CA: {short_ca}", token_addr)]
+    except Exception:
+        tele_row0 = [Button.url(f"📋 CA: {short_ca}", chart_url)]
+
+    try:
+        from telegram import CopyTextButton
+        bot_row0 = [InlineKeyboardButton(f"📋 CA: {short_ca}", copy_text=CopyTextButton(token_addr))]
+    except Exception:
+        bot_row0 = [InlineKeyboardButton(f"📋 CA: {short_ca}", url=chart_url)]
+
     tele_row1 = [
         Button.url("🚀 Buy on Maestro", maestro_url),
         Button.url(chart_label, chart_url)
@@ -349,7 +365,7 @@ def build_trade_buttons(call_data: dict, bot_username: str = "kolinsightsbot"):
         stats_url = f"https://t.me/{bot_username}?start=stats_{clean_caller}"
         tele_row2.append(Button.url("📊 Stats", stats_url))
 
-    tele_buttons = [tele_row1]
+    tele_buttons = [tele_row0, tele_row1]
     if tele_row2:
         tele_buttons.append(tele_row2)
 
@@ -365,12 +381,12 @@ def build_trade_buttons(call_data: dict, bot_username: str = "kolinsightsbot"):
         stats_url = f"https://t.me/{bot_username}?start=stats_{clean_caller}"
         bot_row2.append(InlineKeyboardButton("📊 Stats", url=stats_url))
 
-    bot_keyboard = [bot_row1]
+    bot_keyboard = [bot_row0, bot_row1]
     if bot_row2:
         bot_keyboard.append(bot_row2)
     bot_markup = InlineKeyboardMarkup(bot_keyboard)
 
-    return tele_buttons, bot_markup
+    return tele_buttons, bot_markup, maestro_url, chart_url, short_ca
 
 async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: bytes, bot_app):
     """Sends a milestone achievement card to the alert channel and caller group."""
@@ -637,17 +653,17 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
     chain_logo_html = get_chain_emoji_html(chain_name)
 
     safe_t_sym = clean_markdown(call_data.get('token_symbol') or 'TOKEN').replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    tele_buttons, bot_markup = build_trade_buttons(call_data, bot_username)
+    tele_buttons, bot_markup, maestro_url, chart_url, short_ca = build_trade_buttons(call_data, bot_username)
 
     caption_html = (
         f"<b>🚀 {top_word}</b>\n"
         f"{chain_logo_html} <b>Achievement Unlocked: {mult_str}</b>{alpha_text} {hand_emoji_html}\n\n"
-        f"⚡ <b>Project:</b> {proj_link_html} (<code>${safe_t_sym}</code>)\n"
-        f"🌐 <b>Network:</b> <b>{chain_name.upper()}</b>\n"
-        f"📢 <b>Called By:</b> {ch_link_html}\n"
+        f"⚡ <b>Project:</b> {proj_link_html} (<code>${safe_t_sym}</code>)\n\n"
+        f"🌐 <b>Network:</b> <b>{chain_name.upper()}</b>\n\n"
+        f"📢 <b>Called By:</b> {ch_link_html}\n\n"
         f"📈 <b>Performance:</b> <b>{entry_str}</b> {arrow_emoji_html} <b>{ath_str}</b> (<b>{mult_str}</b>)\n\n"
-        f"📋 <b>Contract:</b>\n"
-        f"<code>{token_address}</code>\n\n"
+        f"📋 <b>CA:</b> <code>{short_ca}</code>\n"
+        f"🤖 <a href=\"{maestro_url}\">Maestro</a>  •  📊 <a href=\"{chart_url}\">DexScreener</a>\n\n"
         f"<i>{quote_text}</i>"
     )
 
@@ -1043,32 +1059,32 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
 
     joined_links = "  ".join(links_inline_html)
 
-    tele_buttons, bot_markup = build_trade_buttons(call_data, bot_username)
+    tele_buttons, bot_markup, maestro_url, chart_url, short_ca = build_trade_buttons(call_data, bot_username)
 
     if is_dip and prev_entry_mc > 0:
         prev_entry_str = format_number(prev_entry_mc)
         dip_pct = ((prev_entry_mc - call_data['entry_mc']) / prev_entry_mc) * 100
         caption_html = (
             f"📉 <b>DIP RE-ENTRY DETECTED</b>\n\n"
-            f"⚡ <b>Project:</b> {proj_link_html} (<code>${safe_t_sym}</code>)\n"
-            f"{chain_emoji_html} <b>Network:</b> <b>{chain_str}</b>\n"
-            f"📊 <b>Initial Entry:</b> <b>{prev_entry_str}</b>\n"
-            f"📉 <b>Dip Entry MC:</b> <b>{entry_str}</b> (<b>-{dip_pct:.0f}% Dip</b>)\n"
+            f"⚡ <b>Project:</b> {proj_link_html} (<code>${safe_t_sym}</code>)\n\n"
+            f"{chain_emoji_html} <b>Network:</b> <b>{chain_str}</b>\n\n"
+            f"📊 <b>Initial Entry:</b> <b>{prev_entry_str}</b>\n\n"
+            f"📉 <b>Dip Entry MC:</b> <b>{entry_str}</b> (<b>-{dip_pct:.0f}% Dip</b>)\n\n"
             f"{megaphone_emoji_html} <b>Called By:</b> {ch_link_html}\n\n"
-            f"📋 <b>Contract:</b>\n"
-            f"<code>{token_address}</code>\n\n"
-            f"<i>Tap contract address above to copy</i>"
+            f"📋 <b>CA:</b> <code>{short_ca}</code>\n"
+            f"🤖 <a href=\"{maestro_url}\">Maestro</a>  •  📊 <a href=\"{chart_url}\">DexScreener</a>\n\n"
+            f"<i>Tap CA button below to copy full address</i>"
         )
     else:
         caption_html = (
             f"{target_emoji_html} <b>ALPHA DETECTED</b>\n\n"
-            f"⚡ <b>Project:</b> {proj_link_html} (<code>${safe_t_sym}</code>)\n"
-            f"{chain_emoji_html} <b>Network:</b> <b>{chain_str}</b>\n"
-            f"{entry_graph_icon} <b>Entry Market Cap:</b> <b>{entry_str}</b>\n"
+            f"⚡ <b>Project:</b> {proj_link_html} (<code>${safe_t_sym}</code>)\n\n"
+            f"{chain_emoji_html} <b>Network:</b> <b>{chain_str}</b>\n\n"
+            f"{entry_graph_icon} <b>Entry Market Cap:</b> <b>{entry_str}</b>\n\n"
             f"{megaphone_emoji_html} <b>Called By:</b> {ch_link_html}\n\n"
-            f"📋 <b>Contract:</b>\n"
-            f"<code>{token_address}</code>\n\n"
-            f"<i>Tap contract address above to copy</i>"
+            f"📋 <b>CA:</b> <code>{short_ca}</code>\n"
+            f"🤖 <a href=\"{maestro_url}\">Maestro</a>  •  📊 <a href=\"{chart_url}\">DexScreener</a>\n\n"
+            f"<i>Tap CA button below to copy full address</i>"
         )
 
     if is_dip:
@@ -1172,11 +1188,11 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
                 media_type = custom_media.get("media_type")
                 file_id = custom_media.get("file_id")
                 if media_type == "animation":
-                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML")
+                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
                 else:
-                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML")
+                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
             else:
-                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True)
+                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True, reply_markup=bot_markup)
             logger.info(f"📢 [NEW CALL BOT API SUCCESS] Posted new call alert for call #{call_data.get('id')} to alert channel {alert_ch} via @kolinsightsbot (Plain Unicode Fallback)")
         except Exception as e:
             logger.warning(f"❌ [NEW CALL BOT API FAILED] Failed to post new call alert to chat {alert_ch}: {e}")
@@ -1245,11 +1261,11 @@ async def send_spotlight_report(token_data: dict, bot_app, chat_id=None):
                 media_type = custom_media.get("media_type")
                 file_id = custom_media.get("file_id")
                 if media_type == "animation":
-                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML")
+                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
                 else:
-                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML")
+                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
             else:
-                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True)
+                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True, reply_markup=bot_markup)
             logger.info(f"Posted spotlight report to chat {alert_target}")
         except Exception as e:
             logger.warning(f"Failed to post spotlight report to chat {alert_target}: {e}")

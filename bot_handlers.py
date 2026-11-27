@@ -1,7 +1,7 @@
 import os
 import logging
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CopyTextButton
 from telegram.ext import ContextTypes, CommandHandler, Application
 
 from config import ADMIN_IDS
@@ -322,9 +322,15 @@ async def display_project_info(message_or_update, ca: str, bot_username: str = "
     ath_mc = max(first_call['ath_mc'], max((c['ath_mc'] for c in calls), default=0), current_mc)
     earliest_caller = f"@{first_call['channel_username']}" if first_call.get('channel_username') else first_call['channel_title']
 
+    short_ca = f"{ca[:6]}...{ca[-4:]}" if len(ca) > 16 else ca
+    maestro_url = f"https://t.me/MaestroSniperBot?start={ca}"
+    chart_url = f"https://dexscreener.com/{chain}/{ca}"
+    ttf_url = f"https://t.me/ttfbotgo_bot?start={ca}"
+
     text = (
         f"🐉 **Project Name:** {p_name}\n\n"
-        f"💵 **CA:** `{ca}`\n\n"
+        f"💵 **CA:** `{short_ca}`\n"
+        f"🤖 [Maestro]({maestro_url})  •  📊 [DexScreener]({chart_url})\n\n"
         f"📊 **Current Marketcap:** {format_number(current_mc)}\n\n"
         f"📈 **ATH:** {format_number(ath_mc)}\n\n"
         f"📞 **Total Calls:** {len(calls)}\n\n"
@@ -358,12 +364,17 @@ async def display_project_info(message_or_update, ca: str, bot_username: str = "
         f"[Want your ad here? Contact @KOLInsightsAdmin](https://t.me/KOLInsightsAdmin)\n"
     )
 
-    # Inline Keyboard Buttons at bottom: [ View Chart ↗️ ] [ Check TTF ↗️ ]
-    chart_url = f"https://dexscreener.com/{chain}/{ca}"
-    ttf_url = f"https://t.me/ttfbotgo_bot?start={ca}"
+    try:
+        copy_btn = InlineKeyboardButton(f"📋 CA: {short_ca}", copy_text=CopyTextButton(ca))
+    except Exception:
+        copy_btn = InlineKeyboardButton(f"📋 CA: {short_ca}", url=chart_url)
 
     buttons = [
-        [InlineKeyboardButton("View Chart ↗️", url=chart_url)],
+        [copy_btn],
+        [
+            InlineKeyboardButton("🚀 Buy on Maestro", url=maestro_url),
+            InlineKeyboardButton("📊 DexScreener", url=chart_url)
+        ],
         [InlineKeyboardButton("Check TTF ↗️", url=ttf_url)]
     ]
     reply_markup = InlineKeyboardMarkup(buttons)
