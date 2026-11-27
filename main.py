@@ -662,7 +662,7 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
         f"🌐 <b>Network:</b> <b>{chain_name.upper()}</b>\n\n"
         f"📢 <b>Called By:</b> {ch_link_html}\n\n"
         f"📈 <b>Performance:</b> <b>{entry_str}</b> {arrow_emoji_html} <b>{ath_str}</b> (<b>{mult_str}</b>)\n\n"
-        f"📋 <b>CA:</b> <code>{short_ca}</code>\n"
+        f"📋 <b>CA:</b> <code>{token_address}</code>\n"
         f"🤖 <a href=\"{maestro_url}\">Maestro</a>  •  📊 <a href=\"{chart_url}\">DexScreener</a>\n\n"
         f"<i>{quote_text}</i>"
     )
@@ -727,40 +727,20 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
                 target_entity = await safe_get_telethon_entity(_global_scraper.client, alert_ch)
                 if media_buf:
                     media_buf.seek(0)
-                    try:
-                        msg_res = await _global_scraper.client.send_file(
-                            entity=target_entity,
-                            file=media_buf,
-                            caption=clean_caption,
-                            formatting_entities=tele_entities,
-                            attributes=file_attrs,
-                            buttons=tele_buttons
-                        )
-                    except Exception:
-                        media_buf.seek(0)
-                        msg_res = await _global_scraper.client.send_file(
-                            entity=target_entity,
-                            file=media_buf,
-                            caption=clean_caption,
-                            formatting_entities=tele_entities,
-                            attributes=file_attrs
-                        )
+                    msg_res = await _global_scraper.client.send_file(
+                        entity=target_entity,
+                        file=media_buf,
+                        caption=clean_caption,
+                        formatting_entities=tele_entities,
+                        attributes=file_attrs
+                    )
                 else:
-                    try:
-                        msg_res = await _global_scraper.client.send_message(
-                            entity=target_entity,
-                            message=clean_caption,
-                            formatting_entities=tele_entities,
-                            link_preview=False,
-                            buttons=tele_buttons
-                        )
-                    except Exception:
-                        msg_res = await _global_scraper.client.send_message(
-                            entity=target_entity,
-                            message=clean_caption,
-                            formatting_entities=tele_entities,
-                            link_preview=False
-                        )
+                    msg_res = await _global_scraper.client.send_message(
+                        entity=target_entity,
+                        message=clean_caption,
+                        formatting_entities=tele_entities,
+                        link_preview=False
+                    )
                 if msg_res:
                     main_msg_id_telethon = msg_res.id
                     logger.info(f"📢 [MILESTONE CHANNEL USERBOT] ✅ Successfully delivered {milestone}x Achievement Card via Telethon Userbot to '{alert_ch}'! (Message ID: {msg_res.id})")
@@ -774,11 +754,11 @@ async def send_milestone_alert(call_data: dict, milestone: float, image_bytes: b
                     media_type = custom_media.get("media_type")
                     file_id = custom_media.get("file_id")
                     if media_type == "animation":
-                        b_res = await bot_app.bot.send_animation(chat_id=alert_ch, animation=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                        b_res = await bot_app.bot.send_animation(chat_id=alert_ch, animation=file_id, caption=caption_html, parse_mode="HTML")
                     else:
-                        b_res = await bot_app.bot.send_photo(chat_id=alert_ch, photo=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                        b_res = await bot_app.bot.send_photo(chat_id=alert_ch, photo=file_id, caption=caption_html, parse_mode="HTML")
                 else:
-                    b_res = await bot_app.bot.send_photo(chat_id=alert_ch, photo=InputFile(image_bytes, filename="achievement.png"), caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    b_res = await bot_app.bot.send_photo(chat_id=alert_ch, photo=InputFile(image_bytes, filename="achievement.png"), caption=caption_html, parse_mode="HTML")
                 
                 if b_res:
                     main_msg_id_botapi = b_res.message_id
@@ -922,11 +902,11 @@ async def send_consistency_alert(call_data: dict, count: int, calls_7d: list, bo
                 media_type = custom_media.get("media_type")
                 file_id = custom_media.get("file_id")
                 if media_type == "animation":
-                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML")
                 else:
-                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML")
             else:
-                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True, reply_markup=bot_markup)
+                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True)
             logger.info(f"Posted consistency alert to chat {alert_target}")
         except Exception as e:
             logger.warning(f"Failed to post consistency alert to chat {alert_target}: {e}")
@@ -1071,9 +1051,9 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
             f"📊 <b>Initial Entry:</b> <b>{prev_entry_str}</b>\n\n"
             f"📉 <b>Dip Entry MC:</b> <b>{entry_str}</b> (<b>-{dip_pct:.0f}% Dip</b>)\n\n"
             f"{megaphone_emoji_html} <b>Called By:</b> {ch_link_html}\n\n"
-            f"📋 <b>CA:</b> <code>{short_ca}</code>\n"
+            f"📋 <b>CA:</b> <code>{token_address}</code>\n"
             f"🤖 <a href=\"{maestro_url}\">Maestro</a>  •  📊 <a href=\"{chart_url}\">DexScreener</a>\n\n"
-            f"<i>Tap CA button below to copy full address</i>"
+            f"<i>Tap CA above to copy</i>"
         )
     else:
         caption_html = (
@@ -1082,9 +1062,9 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
             f"{chain_emoji_html} <b>Network:</b> <b>{chain_str}</b>\n\n"
             f"{entry_graph_icon} <b>Entry Market Cap:</b> <b>{entry_str}</b>\n\n"
             f"{megaphone_emoji_html} <b>Called By:</b> {ch_link_html}\n\n"
-            f"📋 <b>CA:</b> <code>{short_ca}</code>\n"
+            f"📋 <b>CA:</b> <code>{token_address}</code>\n"
             f"🤖 <a href=\"{maestro_url}\">Maestro</a>  •  📊 <a href=\"{chart_url}\">DexScreener</a>\n\n"
-            f"<i>Tap CA button below to copy full address</i>"
+            f"<i>Tap CA above to copy</i>"
         )
 
     if is_dip:
@@ -1135,44 +1115,23 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
             if file_to_send:
                 if media_buf and not cached_media:
                     media_buf.seek(0)
-                try:
-                    sent_msg = await active_client.send_file(
-                        entity=target_entity,
-                        file=file_to_send,
-                        caption=clean_caption,
-                        formatting_entities=tele_entities,
-                        attributes=file_attrs,
-                        buttons=tele_buttons
-                    )
-                except Exception:
-                    if media_buf:
-                        media_buf.seek(0)
-                    sent_msg = await active_client.send_file(
-                        entity=target_entity,
-                        file=file_to_send,
-                        caption=clean_caption,
-                        formatting_entities=tele_entities,
-                        attributes=file_attrs
-                    )
+                sent_msg = await active_client.send_file(
+                    entity=target_entity,
+                    file=file_to_send,
+                    caption=clean_caption,
+                    formatting_entities=tele_entities,
+                    attributes=file_attrs
+                )
                 if file_id and sent_msg and getattr(sent_msg, "media", None):
                     _telethon_media_cache[file_id] = sent_msg.media
                     _trim_dict(_telethon_media_cache, max_size=20)
             else:
-                try:
-                    sent_msg = await active_client.send_message(
-                        entity=target_entity,
-                        message=clean_caption,
-                        formatting_entities=tele_entities,
-                        link_preview=False,
-                        buttons=tele_buttons
-                    )
-                except Exception:
-                    sent_msg = await active_client.send_message(
-                        entity=target_entity,
-                        message=clean_caption,
-                        formatting_entities=tele_entities,
-                        link_preview=False
-                    )
+                sent_msg = await active_client.send_message(
+                    entity=target_entity,
+                    message=clean_caption,
+                    formatting_entities=tele_entities,
+                    link_preview=False
+                )
             sent_via_userbot = True
             logger.info(f"✨ [3D EMOJI AUDIT] ✅ SUCCESS! Posted new call alert via Telethon Premium Userbot to {alert_ch} with {emoji_entities_count} live 3D custom animated emojis!")
             logger.info("=" * 60)
@@ -1188,11 +1147,11 @@ async def send_new_call_alert(call_data: dict, bot_app=None, telethon_client=Non
                 media_type = custom_media.get("media_type")
                 file_id = custom_media.get("file_id")
                 if media_type == "animation":
-                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML")
                 else:
-                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML")
             else:
-                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True, reply_markup=bot_markup)
+                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True)
             logger.info(f"📢 [NEW CALL BOT API SUCCESS] Posted new call alert for call #{call_data.get('id')} to alert channel {alert_ch} via @kolinsightsbot (Plain Unicode Fallback)")
         except Exception as e:
             logger.warning(f"❌ [NEW CALL BOT API FAILED] Failed to post new call alert to chat {alert_ch}: {e}")
@@ -1261,11 +1220,11 @@ async def send_spotlight_report(token_data: dict, bot_app, chat_id=None):
                 media_type = custom_media.get("media_type")
                 file_id = custom_media.get("file_id")
                 if media_type == "animation":
-                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    await bot_app.bot.send_animation(chat_id=alert_target, animation=file_id, caption=caption_html, parse_mode="HTML")
                 else:
-                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML", reply_markup=bot_markup)
+                    await bot_app.bot.send_photo(chat_id=alert_target, photo=file_id, caption=caption_html, parse_mode="HTML")
             else:
-                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True, reply_markup=bot_markup)
+                await bot_app.bot.send_message(chat_id=alert_target, text=caption_html, parse_mode="HTML", disable_web_page_preview=True)
             logger.info(f"Posted spotlight report to chat {alert_target}")
         except Exception as e:
             logger.warning(f"Failed to post spotlight report to chat {alert_target}: {e}")

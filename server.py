@@ -15,7 +15,7 @@ class HealthStatus:
     bot_error = None
     scraper_error = None
     startup_stage = "Initializing..."
-    build_version = "v3.2-card-ui-modernized"
+    build_version = "v3.3-buttons-removed-clean-cards"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
