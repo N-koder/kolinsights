@@ -875,7 +875,14 @@ async def set_bot_config(key: str, value: str, db_path: str = DB_PATH):
 async def get_bot_config(key: str, db_path: str = DB_PATH) -> Optional[str]:
     db = get_mongo_db()
     k = key.strip()
-    doc = await db["bot_config"].find_one({"$or": [{"key": k}, {"config_key": k}]}, {"_id": 0})
+    doc = await db["bot_config"].find_one({
+        "$or": [
+            {"key": k},
+            {"config_key": k},
+            {"key": {"$regex": f"^{re.escape(k)}$", "$options": "i"}},
+            {"config_key": {"$regex": f"^{re.escape(k)}$", "$options": "i"}}
+        ]
+    }, {"_id": 0})
     if not doc:
         return None
     return doc.get("value") or doc.get("config_value")

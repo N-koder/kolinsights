@@ -5,7 +5,7 @@ import asyncio
 import logging
 from typing import Optional
 from telegram.ext import ApplicationBuilder
-from telegram import InputFile
+from telegram import InputFile, Update
 from telethon.tl.types import DocumentAttributeAnimated, DocumentAttributeVideo
 
 from config import BOT_TOKEN, ALERT_CHANNEL_ID, ADMIN_IDS
