@@ -865,16 +865,20 @@ async def get_all_milestone_media(db_path: str = DB_PATH) -> List[Dict[str, Any]
 
 async def set_bot_config(key: str, value: str, db_path: str = DB_PATH):
     db = get_mongo_db()
+    k = key.strip()
     await db["bot_config"].update_one(
-        {"key": key.strip()},
-        {"$set": {"key": key.strip(), "value": str(value)}},
+        {"$or": [{"key": k}, {"config_key": k}]},
+        {"$set": {"key": k, "value": str(value), "config_key": k, "config_value": str(value)}},
         upsert=True
     )
 
 async def get_bot_config(key: str, db_path: str = DB_PATH) -> Optional[str]:
     db = get_mongo_db()
-    doc = await db["bot_config"].find_one({"key": key.strip()}, {"_id": 0})
-    return doc["value"] if doc else None
+    k = key.strip()
+    doc = await db["bot_config"].find_one({"$or": [{"key": k}, {"config_key": k}]}, {"_id": 0})
+    if not doc:
+        return None
+    return doc.get("value") or doc.get("config_value")
 
 async def get_caller_x2_calls_7d(channel_id: int, db_path: str = DB_PATH) -> List[Dict[str, Any]]:
     db = get_mongo_db()

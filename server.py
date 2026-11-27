@@ -15,7 +15,7 @@ class HealthStatus:
     bot_error = None
     scraper_error = None
     startup_stage = "Initializing..."
-    build_version = "v2.9-revolving-circuit-breakers"
+    build_version = "v3.0-single-channel-eldorado-active"
 
 class RenderHealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):

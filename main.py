@@ -1949,7 +1949,7 @@ async def _bot_polling_watchdog(bot_app):
                 if not is_running:
                     logger.warning("⚠️ [BOT WATCHDOG] Polling detected as stopped (Conflict/network drop). Auto-recovering polling now...")
                     try:
-                        await bot_app.updater.start_polling(drop_pending_updates=True, bootstrap_retries=-1)
+                        await bot_app.updater.start_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True, bootstrap_retries=-1)
                         HealthStatus.bot_online = True
                         HealthStatus.bot_error = None
                         logger.info("✅ [BOT WATCHDOG] Polling successfully recovered and active!")
@@ -2012,7 +2012,7 @@ async def main():
             retries = 5
             while retries > 0:
                 try:
-                    await bot_app.updater.start_polling(drop_pending_updates=True, bootstrap_retries=-1)
+                    await bot_app.updater.start_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True, bootstrap_retries=-1)
                     HealthStatus.bot_app = bot_app
                     HealthStatus.bot_online = True
                     HealthStatus.bot_error = None

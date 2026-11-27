@@ -1733,4 +1733,4 @@ def register_handlers(app: Application):
     app.add_handler(CommandHandler("remindsub", remindsub_command))
     app.add_handler(CommandHandler("remind", remindsub_command))
     app.add_handler(CommandHandler("adminhelp", adminhelp_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, group_text_handler))
+    app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, group_text_handler))
