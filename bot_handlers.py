@@ -1,3 +1,4 @@
+import os
 import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -139,6 +140,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     custom_media = await get_custom_media("start")
 
     target_msg = update.message if update.message else update.effective_message
+    sent_media = False
     if target_msg and custom_media:
         try:
             file_id = custom_media.get("file_id")
@@ -147,9 +149,26 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await target_msg.reply_animation(animation=file_id, caption=welcome_text_html, parse_mode="HTML", reply_markup=start_buttons)
             else:
                 await target_msg.reply_photo(photo=file_id, caption=welcome_text_html, parse_mode="HTML", reply_markup=start_buttons)
+            sent_media = True
             return
         except Exception as media_err:
-            logger.warning(f"Could not send custom start banner media ({media_err}), falling back to text.")
+            logger.warning(f"Could not send custom start banner media ({media_err}), trying local logo fallback.")
+
+    # Local logo fallback if custom media file_id is invalid or expired
+    if not sent_media and target_msg:
+        logo_path = os.path.join(os.path.dirname(__file__), "kolinsights_website", "logo.jpg")
+        if os.path.exists(logo_path):
+            try:
+                with open(logo_path, "rb") as f:
+                    sent_msg = await target_msg.reply_photo(photo=f, caption=welcome_text_html, parse_mode="HTML", reply_markup=start_buttons)
+                    if sent_msg and sent_msg.photo:
+                        new_file_id = sent_msg.photo[-1].file_id
+                        from database import set_custom_media
+                        await set_custom_media("start", new_file_id, "photo")
+                        logger.info(f"✅ [START BANNER] Auto-cached fresh photo file_id ({new_file_id[:15]}...) in MongoDB!")
+                    return
+            except Exception as local_err:
+                logger.warning(f"Could not send local start banner ({local_err}), falling back to text.")
 
     await safe_reply(target_msg, welcome_text_html, parse_mode="HTML", reply_markup=start_buttons)
 
